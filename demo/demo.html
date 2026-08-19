@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>statusui demo</title>
+<style>
+<!--UI-CSS-->
+/* what a site's own block typically adds: bar colours and its layout knobs */
+:root { --row-cols: 150px 1fr 190px 10px; --stats-cols: 92px auto; }
+.bar i.b1 { background: var(--warning); }
+.bar i.b2 { background: var(--serious); }
+.bar i.b3 { background: var(--critical); }
+.bar i.b4 { background: var(--severe); }
+.bar i.b5 { background: var(--maint); }
+.bar i.b8, .bar i.b9 { background: var(--cell-empty); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>statusui demo</h1>
+    <div class="sub">Every shared component on one page, with fake data.</div>
+    <div class="sub2">Unofficial. <span id="stamp"></span></div>
+  </header>
+
+  <main>
+    <section id="overview">
+      <div class="banner">
+        <span class="dot" id="natdot"></span>
+        <strong id="natline">12 faults and 3 planned outages in Aug 2026</strong>
+        <span class="meta"><b>93.1%</b> back inside 4 hours</span>
+      </div>
+      <div class="controls">
+        <div class="months" id="months"></div>
+        <div class="search">
+          <input id="q" type="search" placeholder="Search a place" autocomplete="off" aria-label="Search a place">
+          <div class="results" id="results" hidden></div>
+        </div>
+      </div>
+      <p class="basis" id="basis">Graded on a made-up aim. <span class="hoverhint">Hover a day in a bar for its detail.</span></p>
+      <div id="list"></div>
+      <div class="legend" id="legend"></div>
+      <h3 class="natheading">Nationally this month</h3>
+      <div class="tiles" id="tiles"></div>
+    </section>
+
+    <section id="placeview">
+      <a class="back" href="#">← All places</a>
+      <div class="chead"><span class="gradechip g-B">B</span><h2>Somewhere</h2></div>
+      <div class="sub2" style="color:var(--muted);font-size:12.5px;margin-bottom:14px">1,234 customers (made up)</div>
+      <div class="card">
+        <div class="bar tall" id="tallbar"></div>
+        <div class="daycap"></div>
+        <div class="tiles" style="margin-bottom:0" id="ptiles"></div>
+      </div>
+      <div class="card">
+        <h3>Outages in Aug 2026</h3>
+        <div class="case"><div class="top">
+          <span class="where">Main Street</span><span class="tag tag-f">Fault</span>
+          <span class="when">3.5 h</span></div>
+          <div class="sum">120 customers · began 16 Aug, 20:21 · restored 16 Aug, 23:51</div>
+          <ul class="tl">
+            <li class="key"><time>16 Aug, 20:21</time><b>Outage began</b> · 120 customers</li>
+            <li><details><summary>2 further updates</summary><ul>
+              <li><time>16 Aug, 21:40</time>80 customers still off</li>
+              <li><time>16 Aug, 22:55</time>12 customers still off</li>
+            </ul></details></li>
+            <li class="key"><time>16 Aug, 23:51</time><b>Supply restored</b></li>
+          </ul>
+        </div>
+        <div class="case"><div class="top">
+          <span class="where">Mill Road</span><span class="tag tag-p">Planned</span>
+          <span class="when">6 h est.</span></div>
+          <div class="sum">40 customers · began 18 Aug, 09:00 · due back 18 Aug, 15:00</div>
+        </div>
+        <p class="empty">Nothing else this month.</p>
+      </div>
+      <div class="card"><h2>Every place</h2><p class="nav"><a href="#">Alpha</a> <a href="#">Beta</a> <a href="#">Gamma</a></p></div>
+    </section>
+  </main>
+
+  <footer>
+    <h3>What this measures</h3>
+    <p>Nothing; it is a demo. <q>Quoted text</q> and <code>code</code> and a <a href="#">link</a>.</p>
+    <details><summary>A disclosure</summary><p>Its body.</p></details>
+    <p>Unofficial.</p>
+  </footer>
+</div>
+
+<script>
+<!--UI-JS-->
+</script>
+<script>
+"use strict";
+var D = { generated: "2026-08-19 10:00 UTC", observed: "2026-08-19 05:30 UTC", stale: false,
+          months: ["2026-06", "2026-07", "2026-08"], partial: ["2026-06-12"] };
+var PLACES = [
+  ["Alpha", "A", "00000100000002000000000000000000", 98, 3, 1],
+  ["Beta", "C", "00100030000000000000040000000500", 84, 7, 2],
+  ["Gamma", "F", "00000000000000000000000000000099", 61, 2, 0],
+  ["Delta", null, "00000000000000000000000000000000", null, 0, 0]
+];
+var BUCKET = ["normal", "minor", "moderate", "major", "severe", "planned works"];
+function describe(ch, date) {
+  var b = +ch, cap;
+  if (b === 9) cap = date + ": still to come";
+  else if (b === 8) cap = date + ": no data collected for this day";
+  else if (b === 5) cap = date + ": planned works only";
+  else if (b === 0) cap = date + ": no significant fault";
+  else cap = date + ": " + BUCKET[b] + " fault disruption";
+  return ["b" + b, cap, b < 8];
+}
+function gradeChip(g) {
+  return '<span class="gradechip g-' + (g || "none") + '">' + (g || "–") + "</span>";
+}
+function setMonth(m) { document.getElementById("months").innerHTML = monthTabs(D.months, m, "setMonth"); }
+setMonth("2026-08");
+document.getElementById("stamp").innerHTML = stampLine(D);
+document.getElementById("natdot").style.background = "var(--warning)";
+document.getElementById("list").innerHTML = PLACES.map(function (p) {
+  return '<div class="place"><div class="row">' +
+    '<div class="cname">' + gradeChip(p[1]) + '<a href="#">' + esc(p[0]) + "</a></div>" +
+    '<div class="bar">' + dayCells(p[2], "2026-08", describe, D.partial) + "</div>" +
+    '<div class="stats"><div class="counts">' +
+      "<b>" + p[4] + "</b><span>faults</span><b>" + p[5] + "</b><span>planned</span></div>" +
+      '<div class="cml"><b>' + (p[3] == null ? "–" : p[3] + "%") + "</b><br>back in 4h</div>" +
+    '</div><span class="chev">›</span><div class="daycap"></div></div></div>';
+}).join("");
+document.getElementById("legend").innerHTML =
+  [[0, "no significant fault"], [1, "minor"], [2, "moderate"], [3, "major"], [4, "severe"],
+   [5, "planned works"], [8, "no data"]].map(function (l) {
+    return '<span><i class="b' + l[0] + '" style="background:var(' +
+      ["--good","--warning","--serious","--critical","--severe","--maint","","","--cell-empty"][l[0]] +
+      ')"></i>' + esc(l[1]) + "</span>";
+  }).join("");
+function tile(v, k) { return '<div class="tile"><div class="v">' + esc(v) + '</div><div class="k">' + esc(k) + "</div></div>"; }
+document.getElementById("tiles").innerHTML = [tile("93.1%", "back inside 4 hours"), tile(num(12345), "customers hit"),
+  tile(fmtHours(3000), "total time off supply"), tile(fmtHours(72, fmtDays), "lifts-style days")].join("");
+document.getElementById("tallbar").innerHTML = dayCells(PLACES[1][2], "2026-08", describe, D.partial);
+document.getElementById("ptiles").innerHTML = [tile("84%", "back inside 4 hours"), tile(7, "faults"), tile(2, "planned"), tile(num(1234), "customers hit")].join("");
+bindDayCaption();
+</script>
+</body>
+</html>
