@@ -92,7 +92,8 @@ def hours(h, days_fmt=None):
     if h < 1:
         return f"{half_up(h * 60)} min"
     if h < 48:
-        return f"{h:.1f} h" if h < 10 else f"{half_up(h)} h"
+        # tenths via half_up too: toFixed rounds a tie up, "%.1f" goes to even
+        return f"{half_up(h * 10) / 10:.1f} h" if h < 10 else f"{half_up(h)} h"
     n = half_up(h / 24)
     if days_fmt:
         return days_fmt(n)
