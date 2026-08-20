@@ -26,6 +26,11 @@ copy drifts from this checkout.
 - `[hidden] { display: none !important }` is the only `!important` display rule in
   `base.css`; that is the invariant that keeps the sites' view switching working.
 
+## Writing conventions
+
+Never hard-wrap prose in commit messages or PR descriptions: each paragraph is one line, and
+the renderer does the wrapping. Line breaks only between paragraphs or list items.
+
 ## What goes here and what does not
 
 A rule goes in `base.css` when at least two sites want it and none wants it different. The
