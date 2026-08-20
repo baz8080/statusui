@@ -25,7 +25,7 @@ JS_GLOBALS = {
     "M3", "MFULL", "PARTIAL_NOTE",
     "esc", "slug", "monthLabel", "monthLabelLong", "num", "plural",
     "fmtDays", "fmtHours", "when", "monthTabs", "revealMonthTab", "dayCells",
-    "bindDayCaption",
+    "bindDayCaption", "bindMonthReveal",
     "cacheBust", "loadShard", "stampLine",
 }
 
