@@ -114,7 +114,7 @@ class TestJs(unittest.TestCase):
         bare = re.sub(r"/\*.*?\*/|//[^\n]*", "", JS, flags=re.S)
         self.assertNotIn("`", bare)
         self.assertNotIn("=>", bare)
-        self.assertIsNone(re.search(r"\b(?:let|const)\s+[A-Za-z_$]", bare))
+        self.assertIsNone(re.search(r"\b(?:let|const)\b", bare))
 
     def test_month_names_mirror_python(self):
         mfull = re.search(r"var MFULL = \[(.*?)\];", JS, re.S).group(1)
@@ -179,6 +179,7 @@ class TestPython(unittest.TestCase):
         self.assertEqual(statusui.hours(0.99), "59 min")
         self.assertEqual(statusui.hours(1), "1.0 h")
         self.assertEqual(statusui.hours(2.25), "2.3 h")  # toFixed rounds a tie up
+        self.assertEqual(statusui.hours(1.15), "1.1 h")  # ... but 1.15 is a hair under one
         self.assertEqual(statusui.hours(9.96), "10.0 h")
         self.assertEqual(statusui.hours(10), "10 h")
         self.assertEqual(statusui.hours(47.9), "48 h")
@@ -250,7 +251,7 @@ class TestMirror(unittest.TestCase):
     dashes for the static URLs; the JS one does neither.
     """
 
-    HOURS = [0.02, 0.5, 0.99, 1, 1.25, 2.25, 2.5, 9.94, 9.96, 10,
+    HOURS = [0.02, 0.5, 0.99, 1, 1.15, 1.25, 1.45, 2.25, 2.5, 8.95, 9.94, 9.96, 10,
              12.5, 23.5, 36, 47.9, 48, 60, 72, 24 * 90, 24 * 365]
     DAYS = [0, 1, 2, 59, 60, 61, 365]
     WHEN = ["2026-08-16T20:21", "2026-01-06T09:05", "2025-12-31T23:59"]
