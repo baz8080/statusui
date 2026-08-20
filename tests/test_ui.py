@@ -300,5 +300,44 @@ console.log(JSON.stringify({{
         self.assertEqual(self.js["cells"], py)
 
 
+class TestSync(unittest.TestCase):
+    """sync.sh's UPSTREAM stamp, which is a consumer's only record of what it
+    carries. A stamp that names no commit — a `-dirty` one — has to be replaced
+    on the next sync even when there is nothing to copy, or a sync made before
+    the change was committed here leaves the consumer stamped `-dirty` forever."""
+
+    def sync(self, dest):
+        run = subprocess.run([str(ROOT / "sync.sh"), str(dest)], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        return run.stdout.strip()
+
+    def setUp(self):
+        if subprocess.run(["git", "-C", str(ROOT), "status", "--porcelain", "--", "ui"],
+                          capture_output=True, text=True).stdout.strip():
+            self.skipTest("ui/ is dirty, so every stamp is legitimately -dirty")
+        self.dest = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.dest)
+        self.rev = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--short", "HEAD"],
+                                  capture_output=True, text=True).stdout.strip()
+
+    def test_first_sync_stamps_head(self):
+        self.sync(self.dest)
+        self.assertEqual((self.dest / "UPSTREAM").read_text().strip(), self.rev)
+
+    def test_dirty_stamp_is_replaced_with_nothing_to_copy(self):
+        self.sync(self.dest)
+        (self.dest / "UPSTREAM").write_text("deadbee-dirty\n")
+        out = self.sync(self.dest)
+        self.assertEqual((self.dest / "UPSTREAM").read_text().strip(), self.rev)
+        self.assertIn("stamp only", out)
+
+    def test_a_real_stamp_is_left_alone(self):
+        self.sync(self.dest)
+        (self.dest / "UPSTREAM").write_text("deadbee\n")
+        out = self.sync(self.dest)
+        self.assertEqual((self.dest / "UPSTREAM").read_text().strip(), "deadbee")
+        self.assertIn("no changes", out)
+
+
 if __name__ == "__main__":
     unittest.main()
