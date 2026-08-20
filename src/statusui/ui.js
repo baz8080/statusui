@@ -1,4 +1,4 @@
-/* Vendored from baz8080/statusui — edit there, then run scripts/sync-ui.sh.
+/* statusui — shared browser helpers, inlined into each page by statusui.assemble().
    Plain globals, ES5, and nothing runs at load: the page calls what it needs.
    A site's own script must not redeclare any name defined here. */
 "use strict";

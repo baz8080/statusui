@@ -2,37 +2,41 @@
 
 The design layer shared by three status sites — [uisce](https://github.com/baz8080/uisce),
 [esb](https://github.com/baz8080/esb) and [lifts](https://github.com/baz8080/lifts) — so a UI
-fix is written once and carried to each site by a file copy rather than ported by hand.
+fix is written once and rolled out to each site as a pinned dependency bump.
 
 ```
-ui/base.css      design tokens (light + dark) and every shared rule
-ui/ui.js         shared browser helpers: plain ES5 globals, nothing runs at load
-ui/statusui.py   shared build helpers, stdlib only, Python 3.9 syntax
-sync.sh          copies ui/ into a consumer and stamps UPSTREAM with this repo's commit
-demo/            python3 demo/build.py → demo/out/index.html, every component with fake data
-tests/           python3 -m unittest discover -s tests -t .
+src/statusui/__init__.py   shared build helpers, stdlib only, Python 3.9 syntax
+src/statusui/base.css      design tokens (light + dark) and every shared rule
+src/statusui/ui.js         shared browser helpers: plain ES5 globals, nothing runs at load
+rollout.sh                 bumps each consumer's pin, runs its tests, opens the three PRs
+demo/                      python3 demo/build.py → demo/out/index.html, fake data, every component
+tests/                     python3 -m unittest discover -s tests -t .
 ```
 
 ## How it reaches a site
 
-Each site keeps a **vendored copy** under `<site_pkg>/ui/` — `esb_site/ui`, `lift_site/ui`,
-`src/uisce/ui` — committed like any other file. Nothing is installed and nothing is fetched at
-build or in CI; the pages stay single-file because `statusui.assemble()` inlines `base.css`
-and `ui.js` into each template at the `<!--UI-CSS-->` and `<!--UI-JS-->` markers. A site's
-own stylesheet and script follow the markers and override or extend.
+Each site declares `statusui` as a **uv git dependency** on this repo, pinned to a commit in
+its `uv.lock`. Nothing is fetched at page-load time; the pages stay single-file because
+`statusui.assemble()` inlines `base.css` and `ui.js` into each template at the
+`<!--UI-CSS-->` and `<!--UI-JS-->` markers during the build. A site's own stylesheet and
+script follow the markers and override or extend.
 
-This repo is expected at `../statusui` relative to each site, the way the data repos sit at
-`../esb-data` and `../lifts-data`. Each site has a test that compares its vendored copy to
-`../statusui/ui` when that directory exists, and skips when it does not.
+The three site repos are expected at `../uisce`, `../esb` and `../lifts` relative to this one
+(the same sibling convention as the `../esb-data` and `../lifts-data` repos) — that is where
+`rollout.sh` finds them.
 
 ## To ship a change
 
-1. Edit `ui/*` here. `python3 -m unittest discover -s tests -t .`; `python3 demo/build.py` and
-   look at it.
+1. Edit `src/statusui/*` here. `python3 -m unittest discover -s tests -t .`;
+   `python3 demo/build.py` and look at it.
 2. Commit and push here.
-3. In each site: `scripts/sync-ui.sh`, run its tests, build it, look at it, commit.
-4. If a site needed anything beyond the sync, that was a site change, not a UI change — and it
-   probably belongs in that site's own block, not here.
+3. `./rollout.sh` — for each site it bumps `uv.lock` to this commit, runs that site's tests,
+   pushes a `bump-statusui` branch and opens the PR. Merge the three PRs.
+4. If a site needed anything beyond the pin bump, that was a site change, not a UI change —
+   and it probably belongs in that site's own block, not here.
+
+To try an unpushed change against a site first:
+`uv run --with-editable ../statusui <build-cmd>` from that site's directory.
 
 ## What is shared and what is not
 

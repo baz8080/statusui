@@ -12,12 +12,12 @@ from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "src"))
 
-from ui import statusui  # noqa: E402
+import statusui  # noqa: E402
 
-CSS = (ROOT / "ui" / "base.css").read_text(encoding="utf-8")
-JS = (ROOT / "ui" / "ui.js").read_text(encoding="utf-8")
+CSS = (ROOT / "src" / "statusui" / "base.css").read_text(encoding="utf-8")
+JS = (ROOT / "src" / "statusui" / "ui.js").read_text(encoding="utf-8")
 
 # Every global ui.js defines. A consumer's test checks its own script against
 # this list, so adding a name here is a deliberate act.
@@ -69,9 +69,11 @@ class TestCss(unittest.TestCase):
         self.assertIsNotNone(dark)
         self.assertIn("--page:", dark.group(1))
 
-    def test_vendor_header_is_first(self):
-        self.assertTrue(CSS.startswith("/* Vendored from baz8080/statusui"))
-        self.assertTrue(JS.startswith("/* Vendored from baz8080/statusui"))
+    def test_header_names_the_source(self):
+        # both files land inlined in consumer pages; the header is the only
+        # pointer back to where an edit belongs
+        self.assertTrue(CSS.startswith("/* statusui"))
+        self.assertTrue(JS.startswith("/* statusui"))
 
     def test_text_tokens_pass_aa_contrast(self):
         # the header comment's claim, held to: every *-text hue reads as 4.5:1
@@ -240,7 +242,7 @@ class TestPython(unittest.TestCase):
 
     def test_python_39_floor(self):
         # best-effort: the parser rejects syntax the consumers' 3.9 can't read
-        src = (ROOT / "ui" / "statusui.py").read_text(encoding="utf-8")
+        src = (ROOT / "src" / "statusui" / "__init__.py").read_text(encoding="utf-8")
         ast.parse(src, feature_version=(3, 9))
 
 
@@ -298,51 +300,6 @@ console.log(JSON.stringify({{
             "09", "2026-08", {"2026-08-01", "2026-08-02"},
             {"0": "quiet day", "9": "to come"}, qualify=lambda ch: ch != "9")
         self.assertEqual(self.js["cells"], py)
-
-
-class TestSync(unittest.TestCase):
-    """sync.sh's UPSTREAM stamp, which is a consumer's only record of what it
-    carries. Nothing to copy is not enough to leave it alone: the stamp has to
-    already name this commit, or a sync run while ui/ was dirty leaves the
-    consumer stamped `-dirty` forever once the change is committed here."""
-
-    def sync(self, dest):
-        run = subprocess.run([str(ROOT / "sync.sh"), str(dest)], capture_output=True, text=True)
-        self.assertEqual(run.returncode, 0, run.stderr)
-        return run.stdout.strip()
-
-    def setUp(self):
-        if subprocess.run(["git", "-C", str(ROOT), "status", "--porcelain", "--", "ui"],
-                          capture_output=True, text=True).stdout.strip():
-            self.skipTest("ui/ is dirty, so every stamp is legitimately -dirty")
-        self.dest = Path(tempfile.mkdtemp())
-        self.addCleanup(shutil.rmtree, self.dest)
-        self.rev = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--short", "HEAD"],
-                                  capture_output=True, text=True).stdout.strip()
-
-    def test_first_sync_stamps_head(self):
-        self.sync(self.dest)
-        self.assertEqual((self.dest / "UPSTREAM").read_text().strip(), self.rev)
-
-    def test_dirty_stamp_is_replaced_with_nothing_to_copy(self):
-        self.sync(self.dest)
-        (self.dest / "UPSTREAM").write_text("deadbee-dirty\n")
-        out = self.sync(self.dest)
-        self.assertEqual((self.dest / "UPSTREAM").read_text().strip(), self.rev)
-        self.assertIn("stamp only", out)
-
-    def test_stale_stamp_is_replaced_with_nothing_to_copy(self):
-        self.sync(self.dest)
-        (self.dest / "UPSTREAM").write_text("deadbee\n")
-        out = self.sync(self.dest)
-        self.assertEqual((self.dest / "UPSTREAM").read_text().strip(), self.rev)
-        self.assertIn("stamp only", out)
-
-    def test_a_matching_stamp_is_left_alone(self):
-        self.sync(self.dest)
-        out = self.sync(self.dest)
-        self.assertEqual((self.dest / "UPSTREAM").read_text().strip(), self.rev)
-        self.assertIn("no changes", out)
 
 
 if __name__ == "__main__":

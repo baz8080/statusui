@@ -4,9 +4,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "src"))
 
-from ui import statusui  # noqa: E402
+import statusui  # noqa: E402
 
 out = ROOT / "demo" / "out"
 out.mkdir(exist_ok=True)

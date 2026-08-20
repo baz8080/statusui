@@ -1,26 +1,30 @@
 # statusui
 
 The design layer shared by three status sites — uisce, esb and lifts, checked out beside this
-repo at `../uisce`, `../esb`, `../lifts`. Nothing here is installed anywhere: each site holds
-a **vendored copy** of `ui/` (`src/uisce/ui`, `esb_site/ui`, `lift_site/ui`) refreshed by its
-`scripts/sync-ui.sh`, and inlines `base.css` and `ui.js` into its pages at build. A change here
-reaches a site only when that site syncs; the sites' `tests/test_ui_vendored.py` fail if their
-copy drifts from this checkout.
+repo at `../uisce`, `../esb`, `../lifts`. Each site installs this repo as a **uv git
+dependency pinned in its `uv.lock`**, and inlines `base.css` and `ui.js` into its pages at
+build via `statusui.assemble()`. A change here reaches a site only when its pin moves;
+`./rollout.sh` moves all three pins in one command.
 
 ## To ship a change
 
-1. Edit `ui/*`. `python3 -m unittest discover -s tests -t .`; `python3 demo/build.py` and look
-   at `demo/out/index.html` (light, dark, 375px).
+1. Edit `src/statusui/*`. `uv run python -m unittest discover -s tests -t .`;
+   `uv run python demo/build.py` and look at `demo/out/index.html` (light, dark, 375px).
 2. Commit and push here.
-3. In each site: `scripts/sync-ui.sh`, its tests, a build, a look, a commit — three PRs.
-4. If a site needed anything beyond the sync, that was a site change and belongs in that site's
-   own `site.css` or inline block, not here.
+3. `./rollout.sh` — bumps each site's `uv.lock`, runs its tests, pushes a `bump-statusui`
+   branch and opens the PR. Merge the three PRs.
+4. If a site needed anything beyond the pin bump, that was a site change and belongs in that
+   site's own `site.css` or inline block, not here.
+
+To test an **unpushed** change against a site, run its build with the local checkout overlaid:
+`uv run --with-editable ../statusui <build-cmd>` from that site's directory.
 
 ## Constraints
 
-- `ui/statusui.py`: standard library only, Python 3.9 syntax (esb/lifts' floor; ruff here
-  targets it). `ui/ui.js`: ES5 — `var`, `function`, no arrows or template literals — and
-  nothing runs at load; pages call what they need. Both guarded by `tests/test_ui.py`.
+- `src/statusui/__init__.py`: standard library only, Python 3.9 syntax (esb/lifts' floor;
+  ruff here targets it). `src/statusui/ui.js`: ES5 — `var`, `function`, no arrows or template
+  literals — and nothing runs at load; pages call what they need. Both guarded by
+  `tests/test_ui.py`.
 - Every global `ui.js` declares is listed in `tests/test_ui.py::JS_GLOBALS`; adding one is a
   deliberate act, because no site script may redeclare it.
 - `[hidden] { display: none !important }` is the only `!important` display rule in

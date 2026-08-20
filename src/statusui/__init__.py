@@ -1,7 +1,7 @@
 """Build helpers shared by the status sites.
 
-Vendored from baz8080/statusui — edit there, then run scripts/sync-ui.sh.
-Standard library only, Python 3.9 syntax: the consumers keep both floors.
+Installed by each site as a uv git dependency pinned in its uv.lock; rollout.sh
+moves the pins. Standard library only, Python 3.9 syntax: the consumers' floor.
 
 The one that matters is `assemble`: it inlines base.css and ui.js into a page
 template at the <!--UI-CSS--> and <!--UI-JS--> markers. Inlined, not linked,

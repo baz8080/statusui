@@ -1,4 +1,5 @@
-/* Vendored from baz8080/statusui — edit there, then run scripts/sync-ui.sh. */
+/* statusui — the design layer shared by uisce, esb and lifts, inlined into
+   each page by statusui.assemble(). */
 
 /* Design tokens. The status hues are tuned for fills; the *-text variants are
    the same hues at a contrast that passes as 4.5:1 text on page and surface,
