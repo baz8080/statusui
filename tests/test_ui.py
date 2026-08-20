@@ -302,9 +302,9 @@ console.log(JSON.stringify({{
 
 class TestSync(unittest.TestCase):
     """sync.sh's UPSTREAM stamp, which is a consumer's only record of what it
-    carries. A stamp that names no commit — a `-dirty` one — has to be replaced
-    on the next sync even when there is nothing to copy, or a sync made before
-    the change was committed here leaves the consumer stamped `-dirty` forever."""
+    carries. Nothing to copy is not enough to leave it alone: the stamp has to
+    already name this commit, or a sync run while ui/ was dirty leaves the
+    consumer stamped `-dirty` forever once the change is committed here."""
 
     def sync(self, dest):
         run = subprocess.run([str(ROOT / "sync.sh"), str(dest)], capture_output=True, text=True)
@@ -331,11 +331,17 @@ class TestSync(unittest.TestCase):
         self.assertEqual((self.dest / "UPSTREAM").read_text().strip(), self.rev)
         self.assertIn("stamp only", out)
 
-    def test_a_real_stamp_is_left_alone(self):
+    def test_stale_stamp_is_replaced_with_nothing_to_copy(self):
         self.sync(self.dest)
         (self.dest / "UPSTREAM").write_text("deadbee\n")
         out = self.sync(self.dest)
-        self.assertEqual((self.dest / "UPSTREAM").read_text().strip(), "deadbee")
+        self.assertEqual((self.dest / "UPSTREAM").read_text().strip(), self.rev)
+        self.assertIn("stamp only", out)
+
+    def test_a_matching_stamp_is_left_alone(self):
+        self.sync(self.dest)
+        out = self.sync(self.dest)
+        self.assertEqual((self.dest / "UPSTREAM").read_text().strip(), self.rev)
         self.assertIn("no changes", out)
 
 
