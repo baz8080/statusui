@@ -27,7 +27,6 @@
   <main>
     <section id="overview">
       <div class="banner">
-        <span class="dot" id="natdot"></span>
         <strong id="natline">12 faults and 3 planned outages in Aug 2026</strong>
         <span class="meta"><b>93.1%</b> back inside 4 hours</span>
       </div>
@@ -117,7 +116,6 @@ function gradeChip(g) {
 function setMonth(m) { document.getElementById("months").innerHTML = monthTabs(D.months, m, "setMonth"); }
 setMonth("2026-08");
 document.getElementById("stamp").innerHTML = stampLine(D);
-document.getElementById("natdot").style.background = "var(--warning)";
 document.getElementById("list").innerHTML = PLACES.map(function (p) {
   return '<div class="place"><div class="row">' +
     '<div class="cname">' + gradeChip(p[1]) + '<a href="#">' + esc(p[0]) + "</a></div>" +

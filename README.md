@@ -40,7 +40,7 @@ To try an unpushed change against a site first:
 
 ## What is shared and what is not
 
-**Shared** — tokens; reset, body, `.wrap`, header; `.banner`, `.dot`; `.tiles/.tile`;
+**Shared** — tokens; reset, body, `.wrap`, header; `.banner`; `.tiles/.tile`;
 `.controls`, `.months`, `.search/.results`; `.legend`, `.basis`, `.natheading`; the overview
 row (`.place > .row`, `.cname`, `.stats`, `.chev`, focus ring); `.gradechip` and grades; `.bar`,
 `.daycap` and the hover/touch rules; the drill-down (`.back`, `.chead`, `.card`, `.empty`,
