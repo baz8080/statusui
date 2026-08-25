@@ -6,7 +6,8 @@
 var M3 = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 var MFULL = ["January","February","March","April","May","June",
              "July","August","September","October","November","December"];
-var PARTIAL_NOTE = " — only part of this day was recorded";
+var D3 = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+var PARTIAL_NOTE = " - only part of this day was recorded";
 
 function esc(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -34,6 +35,17 @@ function fmtHours(h, days) {
 function when(ts, withYear) {
   return +ts.slice(8, 10) + " " + M3[+ts.slice(5, 7) - 1] +
     (withYear ? " " + ts.slice(0, 4) : "") + ", " + ts.slice(11, 16);
+}
+// "2026-08-01" -> "Sat 1 Aug": a date the way a reader says one. The ISO
+// string stays behind the scenes for sorting and comparisons.
+function fmtDay(iso) {
+  var d = new Date(iso.slice(0, 10) + "T00:00:00Z");
+  return D3[d.getUTCDay()] + " " + d.getUTCDate() + " " + M3[d.getUTCMonth()];
+}
+// fmtDay plus the year, only when it isn't the year of `today` — the caller's
+// clock as an ISO string, so a page rebuilt later renders the same.
+function fmtDate(iso, today) {
+  return fmtDay(iso) + (iso.slice(0, 4) === String(today).slice(0, 4) ? "" : " " + iso.slice(0, 4));
 }
 
 /* --- month tabs and day bars ------------------------------------------- */
@@ -132,11 +144,11 @@ function loadShard(state, key, src, isLoaded, done) {
 }
 
 /* --- the build stamp ----------------------------------------------------- */
-// Two different facts: when this page was built, and how far the data behind
-// it reaches. They are normally a few hours apart; when they are not, the
-// grey cells at the end of every bar are the collector having stopped.
+// How far the data behind this page reaches. The build clock (D.generated)
+// stays out of it: a reader cares where the record stops, not when the site
+// was assembled. When the gap between the two grows, the stale flag says the
+// collector has stopped rather than leaving the bars to read as a quiet week.
 function stampLine(D) {
-  return "Rebuilt " + esc(D.generated) + ", data to " +
-    (D.stale ? '<span class="stale">' : "<span>") + esc(D.observed) +
-    (D.stale ? " — collection has stopped" : "") + "</span>.";
+  return "Data to " + (D.stale ? '<span class="stale">' : "<span>") + esc(D.observed) +
+    (D.stale ? " - collection has stopped" : "") + "</span>.";
 }

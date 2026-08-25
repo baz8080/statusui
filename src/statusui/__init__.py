@@ -15,6 +15,7 @@ import html
 import json
 import math
 import unicodedata
+from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
@@ -26,9 +27,13 @@ MONTH_NAMES = (
     "July", "August", "September", "October", "November", "December",
 )
 
+# Monday-first, to index date.weekday() directly; ui.js's D3 is Sunday-first
+# for getUTCDay, and the mirror test holds the two to the same output.
+DAY_NAMES = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
 # Said on a day cell built from part of a day. Plain words on purpose: it is
 # read by someone wondering why their place looks quiet. Mirrored in ui.js.
-PARTIAL_NOTE = " — only part of this day was recorded"
+PARTIAL_NOTE = " - only part of this day was recorded"
 
 
 def base_css():
@@ -74,6 +79,21 @@ def when(ts, year=False):
     return f"{int(ts[8:10])} {mon}{' ' + ts[:4] if year else ''}, {ts[11:16]}"
 
 
+def fmt_day(iso):
+    """'2026-08-01' -> 'Sat 1 Aug': a date the way a reader says one; mirrors ui.js fmtDay."""
+    d = date.fromisoformat(iso[:10])
+    return f"{DAY_NAMES[d.weekday()]} {d.day} {MONTH_NAMES[d.month - 1][:3]}"
+
+
+def fmt_date(iso, today):
+    """fmt_day plus the year when it isn't `today`'s; mirrors ui.js fmtDate.
+
+    `today` is the caller's clock (a date or ISO string), not the wall clock,
+    so a page rebuilt later renders the same.
+    """
+    return fmt_day(iso) + ("" if iso[:4] == str(today)[:4] else f" {iso[:4]}")
+
+
 def half_up(x):
     # JS Math.round rounds a .5 up; Python's round() goes to even. The pages
     # format the same figure on both sides, so they have to agree.
@@ -115,7 +135,7 @@ def day_cells(cells, ym, partial, labels, qualify=lambda ch: True):
     out = []
     for i, ch in enumerate(cells):
         day = f"{ym}-{i + 1:02d}"
-        cap = f"{day}: {labels[ch]}"
+        cap = f"{fmt_day(day)}: {labels[ch]}"
         if qualify(ch) and day in partial:
             cap += PARTIAL_NOTE
         out.append(f'<i class="b{ch}" data-cap="{html.escape(cap)}"></i>')

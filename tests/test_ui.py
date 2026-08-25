@@ -8,7 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -22,10 +22,10 @@ JS = (ROOT / "src" / "statusui" / "ui.js").read_text(encoding="utf-8")
 # Every global ui.js defines. A consumer's test checks its own script against
 # this list, so adding a name here is a deliberate act.
 JS_GLOBALS = {
-    "M3", "MFULL", "PARTIAL_NOTE",
+    "M3", "MFULL", "D3", "PARTIAL_NOTE",
     "esc", "slug", "monthLabel", "monthLabelLong", "num", "plural",
-    "fmtDays", "fmtHours", "when", "monthTabs", "revealMonthTab", "dayCells",
-    "bindDayCaption", "bindMonthReveal",
+    "fmtDays", "fmtHours", "when", "fmtDay", "fmtDate", "monthTabs",
+    "revealMonthTab", "dayCells", "bindDayCaption", "bindMonthReveal",
     "cacheBust", "loadShard", "stampLine",
 }
 
@@ -159,8 +159,15 @@ class TestPython(unittest.TestCase):
             "09", "2026-08", {"2026-08-01", "2026-08-02"},
             {"0": "a & b", "9": "to come"}, qualify=lambda ch: ch not in "89",
         )
-        self.assertIn('class="b0" data-cap="2026-08-01: a &amp; b — only part', out)
-        self.assertIn('class="b9" data-cap="2026-08-02: to come"', out)
+        self.assertIn('class="b0" data-cap="Sat 1 Aug: a &amp; b - only part', out)
+        self.assertIn('class="b9" data-cap="Sun 2 Aug: to come"', out)
+
+    def test_fmt_day(self):
+        self.assertEqual(statusui.fmt_day("2026-08-01"), "Sat 1 Aug")
+        self.assertEqual(statusui.fmt_day("2026-08-16T20:21"), "Sun 16 Aug")
+        self.assertEqual(statusui.fmt_date("2026-08-01", "2026-08-25"), "Sat 1 Aug")
+        self.assertEqual(statusui.fmt_date("2025-12-31", "2026-08-25"), "Wed 31 Dec 2025")
+        self.assertEqual(statusui.fmt_date("2025-12-31", date(2025, 12, 31)), "Wed 31 Dec")
 
     def test_slug_folds_fadas(self):
         self.assertEqual(statusui.slug("Dún Laoghaire"), "dun-laoghaire")
@@ -270,9 +277,11 @@ console.log(JSON.stringify({{
   days: daysIn.map(fmtDays),
   when: whenIn.map(function (t) {{ return when(t); }}),
   whenYear: whenIn.map(function (t) {{ return when(t, true); }}),
+  fmtDay: whenIn.map(fmtDay),
+  fmtDate: whenIn.map(function (t) {{ return fmtDate(t, "2026-08-25"); }}),
   months: whenIn.map(function (t) {{ return monthLabelLong(t.slice(0, 7)); }}),
   cells: dayCells("09", "2026-08", function (ch, date) {{
-    return ["b" + ch, date + ": " + ({{0: "quiet day", 9: "to come"}})[ch], ch !== "9"];
+    return ["b" + ch, fmtDay(date) + ": " + ({{0: "quiet day", 9: "to come"}})[ch], ch !== "9"];
   }}, ["2026-08-01", "2026-08-02"]),
 }}));
 """
@@ -291,6 +300,11 @@ console.log(JSON.stringify({{
     def test_when(self):
         self.assertEqual(self.js["when"], [statusui.when(t) for t in self.WHEN])
         self.assertEqual(self.js["whenYear"], [statusui.when(t, year=True) for t in self.WHEN])
+
+    def test_fmt_day(self):
+        self.assertEqual(self.js["fmtDay"], [statusui.fmt_day(t) for t in self.WHEN])
+        self.assertEqual(
+            self.js["fmtDate"], [statusui.fmt_date(t, "2026-08-25") for t in self.WHEN])
 
     def test_month_label(self):
         self.assertEqual(self.js["months"], [statusui.month_label(t[:7]) for t in self.WHEN])
