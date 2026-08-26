@@ -7,6 +7,16 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.11 is `requires-python`, 3.14 is `.python-version`. Nothing runs
+        # this package on 3.11 today — the consumers build their sites on 3.14
+        # — but the floor is what esb resolves against, so it is checked rather
+        # than asserted.
+        python: ["3.11", "3.14"]
+    env:
+      UV_PYTHON: ${{ matrix.python }}
     steps:
       - uses: actions/checkout@v7
 
