@@ -37,6 +37,11 @@ To test an **unpushed** change against a site, run its build with the local chec
 Never hard-wrap prose in commit messages or PR descriptions: each paragraph is one line, and
 the renderer does the wrapping. Line breaks only between paragraphs or list items.
 
+Comments earn their place or they go. Say **why**, not what — never a paraphrase of the line
+below, a heading for an obviously-named block, or an explanation of a standard flag. One line
+where one will do; if the reasoning needs a paragraph it belongs in the commit message or the
+PR, not above the line. This covers CI YAML as much as Python and JS.
+
 ## What goes here and what does not
 
 A rule goes in `base.css` when at least two sites want it and none wants it different. The
