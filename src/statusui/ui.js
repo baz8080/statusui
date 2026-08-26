@@ -200,8 +200,13 @@ function bindSearch(opts) {
     state = "loading";
     var s = document.createElement("script");
     s.src = opts.src;
+    // settled, as in loadShard: a timed-out script's late onload must not
+    // re-run finish against a retry's state and flush its queue early
+    var settled = false;
     var timer = setTimeout(finish, 10000);
     function finish() {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
       state = opts.loaded() ? "ok" : "error";
       var q = waiting;
@@ -218,6 +223,10 @@ function bindSearch(opts) {
     // is the one they are waiting on.
     var q = opts.input.value.trim();
     if (q.length < 2) { opts.results.hidden = true; return; }
+    // A callback queued behind the fetch must not reopen a dropdown the
+    // reader dismissed while it was in flight; focus still on the box means
+    // they are typing, not dismissing.
+    if (opts.results.hidden && document.activeElement !== opts.input) return;
     var idx = opts.loaded();
     opts.results.hidden = false;
     if (!idx) {
