@@ -172,6 +172,9 @@ header .sub2 { color: var(--muted); margin-top: 3px; font-size: 12.5px; }
 .chead h1, .chead h2 { font-size: 20px; font-weight: 650; }
 .chead .gradechip { width: 32px; height: 32px; font-size: 17px; }
 .chead .gradechip.g-none { font-size: 15px; }
+/* the line under a drill-down heading. lifts and esb each carried this rule
+   byte for byte in their own site.css; uisce is the third consumer. */
+.chead + .sub { color: var(--muted); font-size: 12.5px; margin-bottom: 16px; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 14px; }
 .card h2, .card h3 { font-size: 15px; font-weight: 650; margin-bottom: 10px; }
 .empty { color: var(--muted); font-size: 13.5px; padding: 6px 0; }
