@@ -23,10 +23,10 @@ To test an **unpushed** change against a site, run its build with the local chec
 
 ## Constraints
 
-- `src/statusui/__init__.py`: standard library only, Python 3.9 syntax (esb/lifts' floor;
-  ruff here targets it). `src/statusui/ui.js`: ES5 — `var`, `function`, no arrows or template
-  literals — and nothing runs at load; pages call what they need. Both guarded by
-  `tests/test_ui.py`.
+- `src/statusui/__init__.py`: standard library only, and never a floor above the
+  consumers' — 3.11, which is what esb's Raspberry Pi runs; ruff here targets it. `src/statusui/ui.js`: ES5 — `var`, `function`, no arrows or
+  template literals; that one is a *browser* floor and moves independently of the Python one
+  — and nothing runs at load; pages call what they need. Both guarded by `tests/test_ui.py`.
 - Every global `ui.js` declares is listed in `tests/test_ui.py::JS_GLOBALS`; adding one is a
   deliberate act, because no site script may redeclare it.
 - `[hidden] { display: none !important }` is the only `!important` display rule in

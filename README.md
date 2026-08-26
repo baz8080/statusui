@@ -5,7 +5,7 @@ The design layer shared by three status sites — [uisce](https://github.com/baz
 fix is written once and rolled out to each site as a pinned dependency bump.
 
 ```
-src/statusui/__init__.py   shared build helpers, stdlib only, Python 3.9 syntax
+src/statusui/__init__.py   shared build helpers, stdlib only, Python 3.11
 src/statusui/base.css      design tokens (light + dark) and every shared rule
 src/statusui/ui.js         shared browser helpers: plain ES5 globals, nothing runs at load
 rollout.sh                 bumps each consumer's pin, runs its tests, opens the three PRs

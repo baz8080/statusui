@@ -1,10 +1,10 @@
 # Installed by the consumers as a uv git dependency pinned in their uv.lock;
-# rollout.sh moves the pins. ruff's target tracks the consumers' Python 3.9 floor.
+# rollout.sh moves the pins. ruff's target tracks the consumers' Python floor.
 [project]
 name = "statusui"
 version = "0.1.0"
 description = "The shared design layer of the uisce, esb and lifts status sites"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 dependencies = []
 
 [build-system]
