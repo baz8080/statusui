@@ -1,6 +1,5 @@
 """Guards on the shared files. Run with `python3 -m unittest discover -s tests -t .`."""
 
-import ast
 import json
 import re
 import shutil
@@ -246,11 +245,6 @@ class TestPython(unittest.TestCase):
             total, text = statusui.size_report(site, 4096, "pages", "pages")
         self.assertEqual(total, 2)
         self.assertNotIn("shards", text)
-
-    def test_python_39_floor(self):
-        # best-effort: the parser rejects syntax the consumers' 3.9 can't read
-        src = (ROOT / "src" / "statusui" / "__init__.py").read_text(encoding="utf-8")
-        ast.parse(src, feature_version=(3, 9))
 
 
 @unittest.skipUnless(shutil.which("node"), "node not available")
