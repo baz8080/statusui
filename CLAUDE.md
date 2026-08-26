@@ -10,6 +10,8 @@ build via `statusui.assemble()`. A change here reaches a site only when its pin 
 
 1. Edit `src/statusui/*`. `uv run python -m unittest discover -s tests -t .`;
    `uv run python demo/build.py` and look at `demo/out/index.html` (light, dark, 375px).
+   CI runs both on every push, with node installed so the mirror tests cannot skip —
+   but only looking at the page catches a change that renders wrong rather than throws.
 2. Commit and push here.
 3. `./rollout.sh` — bumps each site's `uv.lock`, runs its tests, pushes a `bump-statusui`
    branch and opens the PR. Merge the three PRs.
