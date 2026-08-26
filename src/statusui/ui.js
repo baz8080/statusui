@@ -143,6 +143,31 @@ function loadShard(state, key, src, isLoaded, done) {
   document.head.appendChild(s);
 }
 
+/* --- how old the data is -------------------------------------------------- */
+// "Data to 26 Aug, 06:04 UTC" asks the reader to do timezone arithmetic to
+// answer the only question they had: is this current? An age answers it.
+//
+// A healthy overnight gap is a big number, and no wording makes a big number
+// read as fine, so the warning past `staleHours` — not the wording — carries
+// "something is wrong". Its absence is the reassurance, and it costs no words
+// on a normal render. `note` is what having gone stale means on this site.
+//
+// Measured against the reader's clock, so a page served from cache says so.
+function freshness(iso, staleHours, note) {
+  var mins = Math.round((Date.now() - Date.parse(iso)) / 60000);
+  // a wrong clock or a stale cache must never render as "in 20 minutes"
+  if (mins < 2) return "Updated just now";
+  // one unit all the way up, as every relative-time library does; rounded, not
+  // floored, so the page never understates its own age
+  var age;
+  if (mins < 60) age = mins + " minutes ago";
+  else if (mins < 1440) age = plural(Math.round(mins / 60), "hour") + " ago";
+  else age = plural(Math.round(mins / 1440), "day") + " ago";
+  // on the exact minutes, not the rounded age, or the warning fires early
+  if (mins < staleHours * 60) return "Updated " + age;
+  return '<span class="stale">Updated ' + age + " - " + esc(note) + "</span>";
+}
+
 /* --- the build stamp ----------------------------------------------------- */
 // How far the data behind this page reaches. The build clock (D.generated)
 // stays out of it: a reader cares where the record stops, not when the site

@@ -26,7 +26,7 @@ JS_GLOBALS = {
     "esc", "slug", "monthLabel", "monthLabelLong", "num", "plural",
     "fmtDays", "fmtHours", "when", "fmtDay", "fmtDate", "monthTabs",
     "revealMonthTab", "dayCells", "bindDayCaption", "bindMonthReveal",
-    "cacheBust", "loadShard", "stampLine",
+    "cacheBust", "loadShard", "freshness", "stampLine",
 }
 
 
@@ -314,6 +314,42 @@ console.log(JSON.stringify({{
             "09", "2026-08", {"2026-08-01", "2026-08-02"},
             {"0": "quiet day", "9": "to come"}, qualify=lambda ch: ch != "9")
         self.assertEqual(self.js["cells"], py)
+
+
+@unittest.skipUnless(shutil.which("node"), "node not available")
+class TestFreshness(unittest.TestCase):
+    """freshness() has no Python twin, so it is exercised under node directly."""
+
+    NOTE = "collection has stopped"
+    STALE = '<span class="stale">Updated %s - ' + NOTE + "</span>"
+    # (minutes before "now", staleHours, expected)
+    CASES = [
+        (-20, 16, "Updated just now"),          # a reader's clock running fast
+        (0, 16, "Updated just now"),
+        (1, 16, "Updated just now"),
+        (2, 16, "Updated 2 minutes ago"),
+        (59, 16, "Updated 59 minutes ago"),
+        (60, 16, "Updated 1 hour ago"),
+        (719, 16, "Updated 12 hours ago"),      # 11h59m rounds up, never down
+        (959, 16, "Updated 16 hours ago"),      # the age rounds to 16h ...
+        (960, 16, STALE % "16 hours ago"),          # ... but only 16h exactly is overdue
+        (1439, 24, "Updated 24 hours ago"),     # one unit all the way up
+        (1440, 24, STALE % "1 day ago"),
+        (4320, 24, STALE % "3 days ago"),
+    ]
+
+    def test_cases(self):
+        cases = json.dumps([[m, h] for m, h, _ in self.CASES])
+        harness = JS + f"""
+Date.now = function () {{ return Date.parse("2026-08-26T12:00:00Z"); }};
+console.log(JSON.stringify({cases}.map(function (c) {{
+  return freshness(new Date(Date.now() - c[0] * 60000).toISOString(), c[1],
+                   {json.dumps(self.NOTE)});
+}})));
+"""
+        run = subprocess.run(["node", "-e", harness], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertEqual(json.loads(run.stdout), [want for _, _, want in self.CASES])
 
 
 if __name__ == "__main__":
