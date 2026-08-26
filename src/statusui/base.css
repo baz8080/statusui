@@ -163,6 +163,7 @@ header .sub2 { color: var(--muted); margin-top: 3px; font-size: 12.5px; }
 .stats .counts b { text-align: right; }
 .stats .counts span { text-align: left; }
 .stats b { color: var(--ink); font-weight: 650; }
+.stats .cml { font-size: 14.5px; }
 
 /* drill-down */
 .back { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 14px; font-size: 13.5px; color: var(--ink-2); text-decoration: none; }
@@ -225,8 +226,8 @@ footer details p { margin: 5px 0 8px; }
   .search { margin-left: 0; width: 100%; }
   .search input { width: 100%; }
   .results { left: 0; right: auto; width: 100%; }
-  /* The legend is reference material — you consult it once a bar confuses
-     you — so on a phone it goes below the bars it describes. Margins do not
+  /* The key sits above the bars it explains — every site overrode the
+     below-the-list order the same way, so the base carries it. Margins do not
      collapse in a flex column, so the column spaces its children itself:
      one gap between neighbours, one more at a section start. */
   #overview { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
@@ -234,8 +235,8 @@ footer details p { margin: 5px 0 8px; }
   #overview > .banner { order: 1; }
   #overview > .controls { order: 2; margin-top: 12px; }
   #overview > .basis { order: 3; }
-  #overview > #list { order: 4; margin-top: 12px; }
-  #overview > .legend { order: 5; margin-top: 12px; }
+  #overview > .legend { order: 4; margin-top: 12px; }
+  #overview > #list { order: 5; margin-top: 12px; }
   #overview > .natheading { order: 6; margin-top: 12px; }
   #overview > .tiles { order: 7; }
 }

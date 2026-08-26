@@ -137,6 +137,19 @@ document.getElementById("tiles").innerHTML = [tile("93.1%", "back inside 4 hours
   tile(fmtHours(3000), "total time off supply"), tile(fmtHours(72, fmtDays), "lifts-style days")].join("");
 document.getElementById("tallbar").innerHTML = dayCells(PLACES[1][2], "2026-08", describe, D.partial);
 document.getElementById("ptiles").innerHTML = [tile("84%", "back inside 4 hours"), tile(7, "faults"), tile(2, "planned"), tile(num(1234), "customers hit")].join("");
+// loaded() already answers, so src is never fetched — the demo stays one file
+var DEMO_INDEX = {
+  Alpha: ["Alphaville", "Angleside"], Beta: ["Betatown", "Ballybeta"],
+  Gamma: ["Gammabridge"], Delta: ["Deltafield", "Dún Delta"]
+};
+bindSearch({
+  input: document.getElementById("q"),
+  results: document.getElementById("results"),
+  counties: PLACES.map(function (p) { return p[0]; }),
+  src: "",
+  loaded: function () { return DEMO_INDEX; },
+  pick: function (c) { document.getElementById("q").placeholder = "Picked " + c; }
+});
 bindDayCaption();
 bindMonthReveal();
 </script>
