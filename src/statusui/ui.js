@@ -181,7 +181,9 @@ function searchHits(q, counties, index) {
 // keystroke instead of loading for every reader who never searches.
 // opts: input and results are elements, counties an array of county names,
 // src the index URL (already cache-busted), loaded() returns the
-// {county: [names]} index or falsy, pick(county) navigates.
+// {county: [names]} index or falsy, pick(county) navigates. note(name, county),
+// optional, returns the annotation shown beside a hit; the default is the
+// county, dropped when the hit is the county itself.
 function bindSearch(opts) {
   var state = null, waiting = [];
   function ensure(then) {
@@ -225,8 +227,9 @@ function bindSearch(opts) {
     var hits = searchHits(q, opts.counties, idx);
     opts.results.innerHTML = hits.length
       ? hits.map(function (h) {
+          var rc = opts.note ? opts.note(h[0], h[1]) : (h[0] === h[1] ? "" : h[1]);
           return '<button data-c="' + esc(h[1]) + '">' + esc(h[0]) +
-            (h[0] === h[1] ? "" : ' <span class="rc">' + esc(h[1]) + "</span>") + "</button>";
+            (rc ? ' <span class="rc">' + esc(rc) + "</span>" : "") + "</button>";
         }).join("")
       : '<div class="none">Nothing matching “' + esc(q) + '”</div>';
   }
