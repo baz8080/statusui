@@ -10,10 +10,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 3.11 is `requires-python`, 3.14 is `.python-version`. Nothing runs
-        # this package on 3.11 today — the consumers build their sites on 3.14
-        # — but the floor is what esb resolves against, so it is checked rather
-        # than asserted.
         python: ["3.11", "3.14"]
     env:
       UV_PYTHON: ${{ matrix.python }}
@@ -33,9 +29,7 @@ jobs:
       - name: Lint
         run: uv run ruff check
 
-      # TestMirror and TestFreshness run ui.js under node and skip without it,
-      # and those are the tests that hold the JS to its Python twin. A silent
-      # skip would leave the suite green with the pairing unchecked.
+      # without node, TestMirror and TestFreshness skip rather than fail
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
@@ -43,7 +37,5 @@ jobs:
       - name: Test
         run: uv run python -m unittest discover -s tests -t . --verbose
 
-      # The demo is the only place base.css and ui.js are rendered together;
-      # a build failure here is a broken file every consumer would inline.
       - name: Build the demo
         run: uv run python demo/build.py
