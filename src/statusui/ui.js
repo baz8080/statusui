@@ -163,7 +163,17 @@ function searchHits(q, counties, index) {
     });
   });
   hits.sort(function (a, b) { return a[2] - b[2] || a[0].localeCompare(b[0]); });
-  return hits.slice(0, 40).map(function (h) { return [h[0], h[1]]; });
+  // one button per place: a name that is also a prefix-ranked county (lifts
+  // indexes each station under itself) would otherwise render twice
+  var seen = {}, out = [];
+  for (var i = 0; i < hits.length && out.length < 40; i++) {
+    var key = hits[i][0] + "|" + hits[i][1];
+    if (!seen[key]) {
+      seen[key] = true;
+      out.push([hits[i][0], hits[i][1]]);
+    }
+  }
+  return out;
 }
 
 // The search box. The name index is the one payload that grows with the number

@@ -344,6 +344,16 @@ console.log(JSON.stringify(searchHits({json.dumps(q)},
     def test_the_query_is_lowercased_inside(self):
         self.assertEqual(self.hits("DÚN"), [["Dún Laoghaire", "Dublin"]])
 
+    def test_a_place_indexed_under_itself_renders_once(self):
+        # lifts keys each station under its own name, so a prefix hit and a
+        # substring hit are the same place
+        harness = JS + """
+console.log(JSON.stringify(searchHits("co", ["Cork"], {"Cork": ["Cork", "Cobh"]})));
+"""
+        run = subprocess.run(["node", "-e", harness], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertEqual(json.loads(run.stdout), [["Cork", "Cork"], ["Cobh", "Cork"]])
+
     def test_hits_are_capped_at_forty(self):
         harness = JS + """
 var index = {"Cork": []};
