@@ -43,8 +43,8 @@ To try an unpushed change against a site first:
 **Shared** — tokens; reset, body, `.wrap`, header; `.banner`; `.tiles/.tile`;
 `.controls`, `.months`, `.search/.results`; `.legend`, `.basis`, `.natheading`; the overview
 row (`.place > .row`, `.cname`, `.stats`, `.chev`, focus ring); `.gradechip` and grades; `.bar`,
-`.daycap` and the hover/touch rules; the drill-down (`.back`, `.chead`, `.card`, `.empty`,
-`.case`, `.tl`, `.nav`); footer and its disclosures; the 640 px reflow. In JS: `esc`, `slug`,
+`.daycap` and the hover/touch rules; the drill-down (`.back`, `.chead`, `.chead + .sub`, `.card`,
+`.empty`, `.case`, `.tl`, `.nav`); footer and its disclosures; the 640 px reflow. In JS: `esc`, `slug`,
 `monthLabel(Long)`, `num`, `plural`, `fmtHours`, `fmtDays`, `when`, `monthTabs`, `dayCells`,
 `bindDayCaption`, `cacheBust`, `loadShard`, `freshness`, `stampLine`, and the place search —
 `searchHits` ranks, `bindSearch` runs the box (lazy index fetch, dropdown, pick); a site

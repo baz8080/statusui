@@ -60,6 +60,11 @@ class TestCss(unittest.TestCase):
         important = re.findall(r"([^{}]+)\{[^{}]*display\s*:[^;{}]*!important", bare)
         self.assertEqual([s.strip() for s in important], ["[hidden]"])
 
+    def test_the_drill_down_sub_line_is_shared(self):
+        # All three sites put a link to the page's permanent URL on this line,
+        # so the rule that styles it belongs here rather than in three copies.
+        self.assertIn(".chead + .sub", CSS)
+
     def test_tokens_are_declared_for_both_schemes(self):
         light = re.search(r":root\s*\{(.*?)\}", CSS, re.S).group(1)
         for tok in ("--page", "--surface", "--ink", "--muted", "--good", "--critical",
