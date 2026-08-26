@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          enable-cache: true
+          # recommended for GitHub-hosted runners: keep source-built wheels,
+          # drop pre-built ones before the cache is saved
+          prune-cache: true
+
+      - name: Install dev tooling
+        run: uv sync --group dev
+
+      - name: Lint
+        run: uv run ruff check
+
+      # TestMirror and TestFreshness run ui.js under node and skip without it,
+      # and those are the tests that hold the JS to its Python twin. A silent
+      # skip would leave the suite green with the pairing unchecked.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Test
+        run: uv run python -m unittest discover -s tests -t . --verbose
+
+      # The demo is the only place base.css and ui.js are rendered together;
+      # a build failure here is a broken file every consumer would inline.
+      - name: Build the demo
+        run: uv run python demo/build.py
