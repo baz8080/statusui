@@ -26,6 +26,7 @@ JS_GLOBALS = {
     "fmtDays", "fmtHours", "when", "fmtDay", "fmtDate", "monthTabs",
     "revealMonthTab", "dayCells", "bindDayCaption", "bindMonthReveal",
     "cacheBust", "loadShard", "freshness", "stampLine",
+    "searchHits", "bindSearch",
 }
 
 
@@ -308,6 +309,60 @@ console.log(JSON.stringify({{
             "09", "2026-08", {"2026-08-01", "2026-08-02"},
             {"0": "quiet day", "9": "to come"}, qualify=lambda ch: ch != "9")
         self.assertEqual(self.js["cells"], py)
+
+
+@unittest.skipUnless(shutil.which("node"), "node not available")
+class TestSearchHits(unittest.TestCase):
+    """searchHits is the pure half of the search box; bindSearch is DOM-only."""
+
+    COUNTIES = ["Carlow", "Cork", "Dublin"]
+    INDEX = {
+        "Cork": ["Ballincollig", "Carrigaline", "Cobh"],
+        "Dublin": ["Balbriggan", "Dún Laoghaire", "Swords"],
+        "Carlow": ["Tullow"],
+    }
+
+    def hits(self, q):
+        harness = JS + f"""
+console.log(JSON.stringify(searchHits({json.dumps(q)},
+  {json.dumps(self.COUNTIES)}, {json.dumps(self.INDEX)})));
+"""
+        run = subprocess.run(["node", "-e", harness], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        return json.loads(run.stdout)
+
+    def test_a_county_prefix_outranks_the_towns_inside_it(self):
+        self.assertEqual(
+            self.hits("co"),
+            [["Cork", "Cork"], ["Cobh", "Cork"], ["Ballincollig", "Cork"]])
+
+    def test_earlier_matches_rank_higher_and_ties_go_alphabetical(self):
+        self.assertEqual(
+            self.hits("ba"),
+            [["Balbriggan", "Dublin"], ["Ballincollig", "Cork"]])
+
+    def test_the_query_is_lowercased_inside(self):
+        self.assertEqual(self.hits("DÚN"), [["Dún Laoghaire", "Dublin"]])
+
+    def test_a_place_indexed_under_itself_renders_once(self):
+        # lifts keys each station under its own name, so a prefix hit and a
+        # substring hit are the same place
+        harness = JS + """
+console.log(JSON.stringify(searchHits("co", ["Cork"], {"Cork": ["Cork", "Cobh"]})));
+"""
+        run = subprocess.run(["node", "-e", harness], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertEqual(json.loads(run.stdout), [["Cork", "Cork"], ["Cobh", "Cork"]])
+
+    def test_hits_are_capped_at_forty(self):
+        harness = JS + """
+var index = {"Cork": []};
+for (var i = 0; i < 60; i++) index.Cork.push("Place " + String(i).padStart(2, "0"));
+console.log(JSON.stringify(searchHits("place", ["Cork"], index).length));
+"""
+        run = subprocess.run(["node", "-e", harness], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertEqual(json.loads(run.stdout), 40)
 
 
 @unittest.skipUnless(shutil.which("node"), "node not available")

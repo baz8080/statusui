@@ -143,6 +143,127 @@ function loadShard(state, key, src, isLoaded, done) {
   document.head.appendChild(s);
 }
 
+/* --- the place search ---------------------------------------------------- */
+// Ranked hits for a place query against {county: [names]}: counties whose own
+// name starts with q come first, then indexed names by how early they match,
+// alphabetical within a rank, capped at 40 so one keystroke cannot render a
+// thousand buttons. Pure, and lowercases q itself, so it is safe standalone.
+function searchHits(q, counties, index) {
+  q = q.toLowerCase();
+  var hits = [];
+  // Counties first, so typing a county name never buries it under the places
+  // inside it.
+  counties.forEach(function (c) {
+    if (c.toLowerCase().indexOf(q) === 0) hits.push([c, c, 0]);
+  });
+  counties.forEach(function (c) {
+    (index[c] || []).forEach(function (name) {
+      var at = name.toLowerCase().indexOf(q);
+      if (at !== -1) hits.push([name, c, at + 1]);
+    });
+  });
+  hits.sort(function (a, b) { return a[2] - b[2] || a[0].localeCompare(b[0]); });
+  // one button per place: a name that is also a prefix-ranked county (lifts
+  // indexes each station under itself) would otherwise render twice
+  var seen = {}, out = [];
+  for (var i = 0; i < hits.length && out.length < 40; i++) {
+    var key = hits[i][0] + "|" + hits[i][1];
+    if (!seen[key]) {
+      seen[key] = true;
+      out.push([hits[i][0], hits[i][1]]);
+    }
+  }
+  return out;
+}
+
+// The search box. The name index is the one payload that grows with the number
+// of distinct places rather than with time, so it is fetched on the first
+// keystroke instead of loading for every reader who never searches.
+// opts: input and results are elements, counties an array of county names,
+// src the index URL (already cache-busted), loaded() returns the
+// {county: [names]} index or falsy, pick(county) navigates. note(name, county),
+// optional, returns the annotation shown beside a hit; the default is the
+// county, dropped when the hit is the county itself.
+function bindSearch(opts) {
+  var state = null, waiting = [];
+  function ensure(then) {
+    // an index already in place (preloaded, or from a prior bind) needs no fetch
+    if (state !== "ok" && opts.loaded()) state = "ok";
+    if (state === "ok") return then();
+    // Queue rather than call straight back: a second keystroke arriving while
+    // the index is still in flight would otherwise run the callback against
+    // an index that has not landed and report the search as permanently
+    // broken. loaded() is the truth, not onload — a file served but blocked,
+    // or truncated, loads without assigning anything.
+    waiting.push(then);
+    if (state === "loading") return;
+    state = "loading";
+    var s = document.createElement("script");
+    s.src = opts.src;
+    // settled, as in loadShard: a timed-out script's late onload must not
+    // re-run finish against a retry's state and flush its queue early
+    var settled = false;
+    var timer = setTimeout(finish, 10000);
+    function finish() {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      state = opts.loaded() ? "ok" : "error";
+      var q = waiting;
+      waiting = [];
+      q.forEach(function (fn) { fn(); });
+    }
+    s.onload = finish;
+    s.onerror = finish;
+    document.head.appendChild(s);
+  }
+  function show() {
+    // The query is re-read rather than captured: a callback queued behind the
+    // index load fires after the reader has typed more, and the newest query
+    // is the one they are waiting on.
+    var q = opts.input.value.trim();
+    if (q.length < 2) { opts.results.hidden = true; return; }
+    // A callback queued behind the fetch must not reopen a dropdown the
+    // reader dismissed while it was in flight; focus still on the box means
+    // they are typing, not dismissing.
+    if (opts.results.hidden && document.activeElement !== opts.input) return;
+    var idx = opts.loaded();
+    opts.results.hidden = false;
+    if (!idx) {
+      opts.results.innerHTML = '<div class="none">Search is unavailable - try reloading.</div>';
+      return;
+    }
+    var hits = searchHits(q, opts.counties, idx);
+    opts.results.innerHTML = hits.length
+      ? hits.map(function (h) {
+          var rc = opts.note ? opts.note(h[0], h[1]) : (h[0] === h[1] ? "" : h[1]);
+          return '<button data-c="' + esc(h[1]) + '">' + esc(h[0]) +
+            (rc ? ' <span class="rc">' + esc(rc) + "</span>" : "") + "</button>";
+        }).join("")
+      : '<div class="none">Nothing matching “' + esc(q) + '”</div>';
+  }
+  opts.input.addEventListener("input", function () {
+    if (opts.input.value.trim().length < 2) { opts.results.hidden = true; return; }
+    if (state !== "ok") {
+      opts.results.hidden = false;
+      opts.results.innerHTML = '<div class="none">Searching…</div>';
+    }
+    ensure(show);
+  });
+  // data-c rather than an inline onclick: a name with an apostrophe would need
+  // escaping twice over, and one delegated listener survives every re-render.
+  opts.results.addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-c]");
+    if (!b) return;
+    opts.input.value = "";
+    opts.results.hidden = true;
+    opts.pick(b.dataset.c);
+  });
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest(".search")) opts.results.hidden = true;
+  });
+}
+
 /* --- how old the data is -------------------------------------------------- */
 // "Data to 26 Aug, 06:04 UTC" asks the reader to do timezone arithmetic to
 // answer the only question they had: is this current? An age answers it.
