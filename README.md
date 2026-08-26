@@ -46,7 +46,7 @@ row (`.place > .row`, `.cname`, `.stats`, `.chev`, focus ring); `.gradechip` and
 `.daycap` and the hover/touch rules; the drill-down (`.back`, `.chead`, `.card`, `.empty`,
 `.case`, `.tl`, `.nav`); footer and its disclosures; the 640 px reflow. In JS: `esc`, `slug`,
 `monthLabel(Long)`, `num`, `plural`, `fmtHours`, `fmtDays`, `when`, `monthTabs`, `dayCells`,
-`bindDayCaption`, `cacheBust`, `loadShard`, `stampLine`. In Python: `assemble`, `slug`,
+`bindDayCaption`, `cacheBust`, `loadShard`, `freshness`, `stampLine`. In Python: `assemble`, `slug`,
 `month_label`, `dumps`, `stamp`, `when`, `hours`, `days`, `day_cells`, `sitemap`, `robots`,
 `size_report`.
 
