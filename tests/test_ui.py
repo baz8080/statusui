@@ -410,6 +410,7 @@ function El(tag) {
 El.prototype.addEventListener = function (t, fn) {
   (this.listeners[t] = this.listeners[t] || []).push(fn);
 };
+El.prototype.contains = function (el) { return el && el.inBox !== false; };
 global.document = {
   head: { appendChild: function () {} },
   createElement: function (t) { return new El(t); },
@@ -431,12 +432,13 @@ bindSearch({
   },
   pick: function (c, t) { picked = [c, t || null]; return !t; }
 });
-function click(c, t) {
+function click(c, t, ev) {
   var el = new El("a"); el.dataset = {c: c, t: t}; var prevented = false;
-  results.listeners.click[0]({
-    target: {closest: function () { return el; }},
-    preventDefault: function () { prevented = true; }
-  });
+  var e = {target: {closest: function () { return el; }},
+           preventDefault: function () { prevented = true; }};
+  for (var k in (ev || {})) e[k] = ev[k];
+  if (ev && ev.outside) el.inBox = false;
+  results.listeners.click[0](e);
   return prevented;
 }
 """
@@ -470,6 +472,45 @@ console.log(JSON.stringify(r2.innerHTML));
         # lifts supplies no href, and must keep exactly the markup it had
         self.assertIn("<button", html)
         self.assertNotIn("<a href", html)
+
+    def test_a_modified_click_on_a_link_is_left_to_the_browser(self):
+        out = self.run_js("""
+picked = null;
+var prevented = click("Kildare", "naas", {metaKey: true});
+console.log(JSON.stringify([prevented, picked]));
+""")
+        # a new-tab click must not clear the box or route the current one
+        self.assertEqual(out, [False, None])
+
+    def test_a_modified_click_still_picks_where_there_is_no_link(self):
+        """lifts supplies no href, so its hits are buttons: there is nothing for
+        the browser to follow and swallowing the click would just break it."""
+        out = self.run_js("""
+var i2 = new El("input"), r2 = new El("div"), got = null;
+document.activeElement = i2;
+bindSearch({
+  input: i2, results: r2, counties: ["Kildare"], src: "",
+  loaded: function () { return {Kildare: ["Sallins Road"]}; },
+  pick: function (c) { got = c; }
+});
+var el = new El("button"); el.dataset = {c: "Kildare"};
+r2.listeners.click[0]({
+  target: {closest: function () { return el; }},
+  ctrlKey: true, preventDefault: function () {}
+});
+console.log(JSON.stringify(got));
+""")
+        self.assertEqual(out, "Kildare")
+
+    def test_a_click_resolving_outside_the_dropdown_is_ignored(self):
+        """closest() lost its `button` qualifier when hits became links, so an
+        unmatched click could otherwise climb out of the box entirely."""
+        out = self.run_js("""
+picked = null;
+click("Kildare", "naas", {outside: true});
+console.log(JSON.stringify(picked));
+""")
+        self.assertIsNone(out)
 
     def test_pick_returning_true_suppresses_the_link(self):
         out = self.run_js("""

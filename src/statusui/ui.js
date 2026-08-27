@@ -275,10 +275,15 @@ function bindSearch(opts) {
   // escaping twice over, and one delegated listener survives every re-render.
   opts.results.addEventListener("click", function (e) {
     var b = e.target.closest("[data-c]");
-    if (!b) return;
-    // a modified click is the reader asking for a new tab or window, so it is
-    // the browser's to handle and the box stays as it is
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
+    // bounded to the dropdown: the selector lost its `button` qualifier when
+    // hits became links, so an unmatched click would otherwise climb out of
+    // the box and pick up any ancestor a site happens to mark with data-c
+    if (!b || !opts.results.contains(b)) return;
+    // a modified click on a real link is the reader asking for a new tab, so
+    // it is the browser's to handle. Only when there is a link: without href a
+    // hit is a button, nothing would follow it, and the pick still has to run.
+    if (opts.href &&
+        (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button)) return;
     opts.input.value = "";
     opts.results.hidden = true;
     if (opts.pick(b.dataset.c, b.dataset.t) === true) e.preventDefault();
