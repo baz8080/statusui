@@ -48,7 +48,8 @@ row (`.place > .row`, `.cname`, `.stats`, `.chev`, focus ring); `.gradechip` and
 `monthLabel(Long)`, `num`, `plural`, `fmtHours`, `fmtDays`, `when`, `monthTabs`, `dayCells`,
 `bindDayCaption`, `cacheBust`, `loadShard`, `freshness`, `stampLine`, and the place search —
 `searchHits` ranks, `bindSearch` runs the box (lazy index fetch, dropdown, pick); a site
-supplies the index file, its counties, the pick handler and an optional per-hit note. In Python: `assemble`, `slug`,
+supplies the index file, its counties, the pick handler, and optionally a per-hit note, a
+per-hit target in the index and an `href` that turns the hits into real links. In Python: `assemble`, `slug`,
 `month_label`, `dumps`, `stamp`, `when`, `hours`, `days`, `day_cells`, `sitemap`, `robots`,
 `size_report`.
 

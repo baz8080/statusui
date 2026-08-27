@@ -144,10 +144,16 @@ function loadShard(state, key, src, isLoaded, done) {
 }
 
 /* --- the place search ---------------------------------------------------- */
-// Ranked hits for a place query against {county: [names]}: counties whose own
-// name starts with q come first, then indexed names by how early they match,
-// alphabetical within a rank, capped at 40 so one keystroke cannot render a
-// thousand buttons. Pure, and lowercases q itself, so it is safe standalone.
+// Ranked hits for a place query against {county: [entry]}, where an entry is a
+// name or a [name, target] pair: counties whose own name starts with q come
+// first, then indexed names by how early they match, alphabetical within a
+// rank, capped at 40 so one keystroke cannot render a thousand buttons. Pure,
+// and lowercases q itself, so it is safe standalone.
+//
+// A hit is [name, county], or [name, county, target] when the entry carried
+// one. The target is shipped by the site rather than derived here because the
+// slug above is not statusui.slug: it leaves a fada as a dash, which would send
+// 20 of Ireland's place names to a URL that does not exist.
 function searchHits(q, counties, index) {
   q = q.toLowerCase();
   var hits = [];
@@ -157,9 +163,11 @@ function searchHits(q, counties, index) {
     if (c.toLowerCase().indexOf(q) === 0) hits.push([c, c, 0]);
   });
   counties.forEach(function (c) {
-    (index[c] || []).forEach(function (name) {
+    (index[c] || []).forEach(function (entry) {
+      var plain = typeof entry === "string";
+      var name = plain ? entry : entry[0];
       var at = name.toLowerCase().indexOf(q);
-      if (at !== -1) hits.push([name, c, at + 1]);
+      if (at !== -1) hits.push([name, c, at + 1, plain ? null : entry[1]]);
     });
   });
   hits.sort(function (a, b) { return a[2] - b[2] || a[0].localeCompare(b[0]); });
@@ -170,7 +178,11 @@ function searchHits(q, counties, index) {
     var key = hits[i][0] + "|" + hits[i][1];
     if (!seen[key]) {
       seen[key] = true;
-      out.push([hits[i][0], hits[i][1]]);
+      // the pair stays a pair when there is no target, so a site that indexes
+      // plain names sees exactly the shape it saw before
+      out.push(hits[i][3] == null
+        ? [hits[i][0], hits[i][1]]
+        : [hits[i][0], hits[i][1], hits[i][3]]);
     }
   }
   return out;
@@ -181,9 +193,14 @@ function searchHits(q, counties, index) {
 // keystroke instead of loading for every reader who never searches.
 // opts: input and results are elements, counties an array of county names,
 // src the index URL (already cache-busted), loaded() returns the
-// {county: [names]} index or falsy, pick(county) navigates. note(name, county),
-// optional, returns the annotation shown beside a hit; the default is the
-// county, dropped when the hit is the county itself.
+// {county: [entry]} index or falsy, pick(county, target) navigates.
+// note(name, county, target), optional, returns the annotation shown beside a
+// hit; the default is the county, dropped when the hit is the county itself.
+// href(county, target), optional, makes each hit a real link to that URL - a
+// search hit is an entry point rather than a drill-down, so it should be
+// something a reader can middle-click, copy and share. pick() returning true
+// means it was handled in the app and the link is suppressed; anything else
+// lets the browser follow it. Without href the hits stay buttons.
 function bindSearch(opts) {
   var state = null, waiting = [];
   function ensure(then) {
@@ -236,9 +253,13 @@ function bindSearch(opts) {
     var hits = searchHits(q, opts.counties, idx);
     opts.results.innerHTML = hits.length
       ? hits.map(function (h) {
-          var rc = opts.note ? opts.note(h[0], h[1]) : (h[0] === h[1] ? "" : h[1]);
-          return '<button data-c="' + esc(h[1]) + '">' + esc(h[0]) +
-            (rc ? ' <span class="rc">' + esc(rc) + "</span>" : "") + "</button>";
+          var rc = opts.note ? opts.note(h[0], h[1], h[2]) : (h[0] === h[1] ? "" : h[1]);
+          var attrs = ' data-c="' + esc(h[1]) + '"' +
+            (h[2] == null ? "" : ' data-t="' + esc(h[2]) + '"');
+          var body = esc(h[0]) + (rc ? ' <span class="rc">' + esc(rc) + "</span>" : "");
+          return opts.href
+            ? '<a href="' + esc(opts.href(h[1], h[2])) + '"' + attrs + ">" + body + "</a>"
+            : "<button" + attrs + ">" + body + "</button>";
         }).join("")
       : '<div class="none">Nothing matching “' + esc(q) + '”</div>';
   }
@@ -253,11 +274,19 @@ function bindSearch(opts) {
   // data-c rather than an inline onclick: a name with an apostrophe would need
   // escaping twice over, and one delegated listener survives every re-render.
   opts.results.addEventListener("click", function (e) {
-    var b = e.target.closest("button[data-c]");
-    if (!b) return;
+    var b = e.target.closest("[data-c]");
+    // bounded to the dropdown: the selector lost its `button` qualifier when
+    // hits became links, so an unmatched click would otherwise climb out of
+    // the box and pick up any ancestor a site happens to mark with data-c
+    if (!b || !opts.results.contains(b)) return;
+    // a modified click on a real link is the reader asking for a new tab, so
+    // it is the browser's to handle. Only when there is a link: without href a
+    // hit is a button, nothing would follow it, and the pick still has to run.
+    if (opts.href &&
+        (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button)) return;
     opts.input.value = "";
     opts.results.hidden = true;
-    opts.pick(b.dataset.c);
+    if (opts.pick(b.dataset.c, b.dataset.t) === true) e.preventDefault();
   });
   document.addEventListener("click", function (e) {
     if (!e.target.closest(".search")) opts.results.hidden = true;
