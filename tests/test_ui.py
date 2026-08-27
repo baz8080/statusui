@@ -359,6 +359,29 @@ console.log(JSON.stringify(searchHits("co", ["Cork"], {"Cork": ["Cork", "Cobh"]}
         self.assertEqual(run.returncode, 0, run.stderr)
         self.assertEqual(json.loads(run.stdout), [["Cork", "Cork"], ["Cobh", "Cork"]])
 
+    def test_a_pair_yields_a_triple_and_a_string_yields_a_pair(self):
+        # the mixed index is the real one: a site indexes names it has a page
+        # for beside names it does not
+        harness = JS + """
+console.log(JSON.stringify(searchHits("na", ["Kildare"],
+  {"Kildare": [["Naas", "naas"], "Nass Road"]})));
+"""
+        run = subprocess.run(["node", "-e", harness], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertEqual(
+            json.loads(run.stdout),
+            [["Naas", "Kildare", "naas"], ["Nass Road", "Kildare"]])
+
+    def test_a_targeted_name_that_is_also_a_county_still_dedups(self):
+        harness = JS + """
+console.log(JSON.stringify(searchHits("co", ["Cork"],
+  {"Cork": [["Cork", "cork"], "Cobh"]})));
+"""
+        run = subprocess.run(["node", "-e", harness], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        # the county hit wins the key, so the county's own row stays targetless
+        self.assertEqual(json.loads(run.stdout), [["Cork", "Cork"], ["Cobh", "Cork"]])
+
     def test_hits_are_capped_at_forty(self):
         harness = JS + """
 var index = {"Cork": []};
@@ -368,6 +391,94 @@ console.log(JSON.stringify(searchHits("place", ["Cork"], index).length));
         run = subprocess.run(["node", "-e", harness], capture_output=True, text=True)
         self.assertEqual(run.returncode, 0, run.stderr)
         self.assertEqual(json.loads(run.stdout), 40)
+
+
+@unittest.skipUnless(shutil.which("node"), "node not available")
+class TestBindSearch(unittest.TestCase):
+    """The dropdown, against a DOM shim carrying only what bindSearch touches.
+
+    What is worth guarding is the contract the sites lean on: a hit with a
+    target is a real link, and pick() returning true is how a site keeps one in
+    the app anyway.
+    """
+
+    SHIM = """
+function El(tag) {
+  this.tag = tag; this.dataset = {}; this.listeners = {};
+  this.innerHTML = ""; this.hidden = false; this.value = "";
+}
+El.prototype.addEventListener = function (t, fn) {
+  (this.listeners[t] = this.listeners[t] || []).push(fn);
+};
+global.document = {
+  head: { appendChild: function () {} },
+  createElement: function (t) { return new El(t); },
+  activeElement: null,
+  addEventListener: function () {}
+};
+global.setTimeout = function () { return 0; };
+global.clearTimeout = function () {};
+"""
+
+    BIND = """
+var input = new El("input"), results = new El("div"), picked = null;
+document.activeElement = input;
+bindSearch({
+  input: input, results: results, counties: ["Kildare"], src: "",
+  loaded: function () { return {Kildare: [["Naas", "naas"], "Sallins Road"]}; },
+  href: function (c, t) {
+    return t ? "a/" + slug(c) + "/" + t + ".html" : "c/" + slug(c) + ".html";
+  },
+  pick: function (c, t) { picked = [c, t || null]; return !t; }
+});
+function click(c, t) {
+  var el = new El("a"); el.dataset = {c: c, t: t}; var prevented = false;
+  results.listeners.click[0]({
+    target: {closest: function () { return el; }},
+    preventDefault: function () { prevented = true; }
+  });
+  return prevented;
+}
+"""
+
+    def run_js(self, body):
+        harness = JS + self.SHIM + self.BIND + body
+        run = subprocess.run(["node", "-e", harness], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        return json.loads(run.stdout)
+
+    def test_a_hit_with_a_target_is_a_real_link(self):
+        html = self.run_js("""
+input.value = "na"; input.listeners.input[0]();
+console.log(JSON.stringify(results.innerHTML));
+""")
+        self.assertIn('<a href="a/kildare/naas.html"', html)
+        self.assertIn('data-t="naas"', html)
+
+    def test_no_href_option_leaves_the_hits_as_buttons(self):
+        html = self.run_js("""
+var i2 = new El("input"), r2 = new El("div");
+document.activeElement = i2;
+bindSearch({
+  input: i2, results: r2, counties: ["Kildare"], src: "",
+  loaded: function () { return {Kildare: ["Sallins Road"]}; },
+  pick: function () {}
+});
+i2.value = "sallins"; i2.listeners.input[0]();
+console.log(JSON.stringify(r2.innerHTML));
+""")
+        # lifts supplies no href, and must keep exactly the markup it had
+        self.assertIn("<button", html)
+        self.assertNotIn("<a href", html)
+
+    def test_pick_returning_true_suppresses_the_link(self):
+        out = self.run_js("""
+var countyHit = click("Kildare", undefined);
+var areaHit = click("Kildare", "naas");
+console.log(JSON.stringify([countyHit, areaHit, picked]));
+""")
+        # the county hit stays in the app; the area hit is allowed to navigate
+        self.assertEqual(out, [True, False, ["Kildare", "naas"]])
 
 
 @unittest.skipUnless(shutil.which("node"), "node not available")
