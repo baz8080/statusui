@@ -16,10 +16,13 @@ sys.path.insert(0, str(ROOT / "src"))
 import statusui  # noqa: E402
 
 CSS = (ROOT / "src" / "statusui" / "base.css").read_text(encoding="utf-8")
-JS = (ROOT / "src" / "statusui" / "ui.js").read_text(encoding="utf-8")
+# What a page inlines at <!--UI-JS-->, which is both JS files: every rule below
+# holds for the bundle, wherever a name lives in it.
+JS = statusui.ui_js()
+CAPTION = statusui.caption_js()
 
-# Every global ui.js defines. A consumer's test checks its own script against
-# this list, so adding a name here is a deliberate act.
+# Every global the bundle defines. A consumer's test checks its own script
+# against statusui.js_globals(), so adding a name here is a deliberate act.
 JS_GLOBALS = {
     "M3", "MFULL", "D3", "PARTIAL_NOTE",
     "esc", "slug", "monthLabel", "monthLabelLong", "num", "plural",
@@ -101,6 +104,24 @@ class TestJs(unittest.TestCase):
     def test_declares_exactly_the_documented_globals(self):
         self.assertEqual(js_globals(JS), JS_GLOBALS)
 
+    def test_the_published_set_is_the_whole_bundles(self):
+        """What consumers assert against. Parsing ui.js instead - which all three
+        did before the split - would drop bindDayCaption and let a site redeclare
+        it unnoticed."""
+        self.assertEqual(statusui.js_globals(), JS_GLOBALS)
+        self.assertIn("bindDayCaption", statusui.js_globals())
+
+    def test_the_caption_bundle_is_the_listener_and_nothing_else(self):
+        """A static page takes this instead of the whole file, so anything that
+        drifts into it is inlined on every place page of every site."""
+        self.assertEqual(js_globals(CAPTION), {"bindDayCaption"})
+        self.assertLess(len(CAPTION), 2000, "the caption bundle has grown a body")
+
+    def test_the_bundle_is_the_app_and_the_caption(self):
+        self.assertTrue(JS.endswith(CAPTION))
+        # a directive is only a directive while nothing precedes it
+        self.assertEqual(JS.splitlines()[3], '"use strict";')
+
     def test_nothing_runs_at_load(self):
         # Top-level statements are declarations only: the page decides what to
         # call. A stray call here would run on every page that inlines the file.
@@ -123,6 +144,12 @@ class TestJs(unittest.TestCase):
         self.assertNotIn("`", bare)
         self.assertNotIn("=>", bare)
         self.assertIsNone(re.search(r"\b(?:let|const)\b", bare))
+        # A class declaration as much as let and const: not ES5, and a binding
+        # neither js_globals() nor a vm context records, so a consumer
+        # redeclaring the name would take the whole inlined script down. Matched
+        # as a declaration, because `class` is also an HTML attribute the bar
+        # builders write into strings all day.
+        self.assertIsNone(re.search(r"\bclass\s+[A-Za-z_$]", bare))
 
     def test_month_names_mirror_python(self):
         mfull = re.search(r"var MFULL = \[(.*?)\];", JS, re.S).group(1)
@@ -145,6 +172,12 @@ class TestPython(unittest.TestCase):
         self.assertIn("function bindDayCaption", page)
         self.assertTrue(page.endswith("filled"))
         self.assertNotIn("<!--", page.replace("<!--UI", ""))
+
+    def test_a_page_can_take_the_caption_without_the_app(self):
+        page = statusui.assemble("<script><!--UI-JS-CAPTION--></script>")
+        self.assertIn("function bindDayCaption", page)
+        self.assertNotIn("function loadShard", page)
+        self.assertNotIn("<!--UI-JS", page)
 
     def test_hours_mirrors_the_js(self):
         self.assertEqual(statusui.hours(0.5), "30 min")
@@ -251,6 +284,49 @@ class TestPython(unittest.TestCase):
             total, text = statusui.size_report(site, 4096, "pages", "pages")
         self.assertEqual(total, 2)
         self.assertNotIn("shards", text)
+
+
+@unittest.skipUnless(shutil.which("node"), "node not available")
+class TestPublishedGlobals(unittest.TestCase):
+    """Hold js_globals() to what a JavaScript engine actually declares.
+
+    Consumers get their redeclaration guard from that function, and it reads
+    the bundle with a regex - one name per declaration, column zero. Every
+    cheaper check of that assumption was itself a regex over JavaScript, and
+    the first one shipped here was fooled by the quotes inside esc()'s
+    /[&<>"']/g. So the assumption is checked against an engine instead: run the
+    bundle in a bare context and ask which names it left behind.
+
+    A context records `var` and `function` bindings, which is the same shape
+    js_globals() reads for; lexical declarations would be invisible to both,
+    and test_es5_syntax_only is what keeps them out of the file.
+    """
+
+    @staticmethod
+    def declared(js):
+        harness = f"""
+const vm = require("vm");
+const ctx = {{}};
+vm.createContext(ctx);
+vm.runInContext({json.dumps(js)}, ctx);
+console.log(JSON.stringify(Object.keys(ctx)));
+"""
+        run = subprocess.run(["node", "-e", harness], capture_output=True, text=True)
+        assert run.returncode == 0, run.stderr
+        return set(json.loads(run.stdout))
+
+    def test_the_regex_agrees_with_an_engine(self):
+        self.assertEqual(statusui.js_globals(), self.declared(statusui.ui_js()))
+
+    def test_a_second_name_on_one_line_is_caught_rather_than_dropped(self):
+        """The failure this exists for: js_globals() would publish `zqA` and
+        say nothing about `zqB`, leaving a consumer free to shadow it."""
+        doctored = statusui.ui_js() + "\nvar zqA = 1, zqB = 2;\n"
+        engine = self.declared(doctored)
+        self.assertIn("zqB", engine)
+        # the shipped parser, not a copy of its regex: a copy would agree with
+        # whatever this test was written against rather than with the function
+        self.assertEqual(statusui._declared(doctored), engine - {"zqB"})
 
 
 @unittest.skipUnless(shutil.which("node"), "node not available")
