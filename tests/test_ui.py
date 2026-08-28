@@ -144,6 +144,12 @@ class TestJs(unittest.TestCase):
         self.assertNotIn("`", bare)
         self.assertNotIn("=>", bare)
         self.assertIsNone(re.search(r"\b(?:let|const)\b", bare))
+        # A class declaration as much as let and const: not ES5, and a binding
+        # neither js_globals() nor a vm context records, so a consumer
+        # redeclaring the name would take the whole inlined script down. Matched
+        # as a declaration, because `class` is also an HTML attribute the bar
+        # builders write into strings all day.
+        self.assertIsNone(re.search(r"\bclass\s+[A-Za-z_$]", bare))
 
     def test_month_names_mirror_python(self):
         mfull = re.search(r"var MFULL = \[(.*?)\];", JS, re.S).group(1)
@@ -290,6 +296,10 @@ class TestPublishedGlobals(unittest.TestCase):
     the first one shipped here was fooled by the quotes inside esc()'s
     /[&<>"']/g. So the assumption is checked against an engine instead: run the
     bundle in a bare context and ask which names it left behind.
+
+    A context records `var` and `function` bindings, which is the same shape
+    js_globals() reads for; lexical declarations would be invisible to both,
+    and test_es5_syntax_only is what keeps them out of the file.
     """
 
     @staticmethod
