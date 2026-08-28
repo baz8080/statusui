@@ -104,6 +104,24 @@ class TestJs(unittest.TestCase):
     def test_declares_exactly_the_documented_globals(self):
         self.assertEqual(js_globals(JS), JS_GLOBALS)
 
+    def test_every_top_level_declaration_names_one_global(self):
+        """js_globals() reads the first name of a declaration and no more, so a
+        second name on the same line would be published as guarded while a
+        consumer could still redeclare it. The style is the guarantee.
+
+        Strings and bracketed groups are emptied first, so what is left of a
+        declaration is its own commas: `var M3 = ["Jan", ...]` is one name and
+        `var a = 1, b = 2` is two.
+        """
+        bare = re.sub(r"/\*.*?\*/|//[^\n]*", "", JS, flags=re.S)
+        flat = re.sub(r"\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.)*'", '""', bare)
+        prev = None
+        while prev != flat:
+            prev = flat
+            flat = re.sub(r"\[[^\[\]]*\]|\{[^{}]*\}|\([^()]*\)", "", flat)
+        for statement in re.findall(r"^var\b[^;]*", flat, re.M):
+            self.assertNotIn(",", statement, f"two names in one declaration: {statement}")
+
     def test_the_published_set_is_the_whole_bundles(self):
         """What consumers assert against. Parsing ui.js instead - which all three
         did before the split - would drop bindDayCaption and let a site redeclare

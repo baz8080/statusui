@@ -61,6 +61,10 @@ def js_globals():
 
     Ask here rather than parsing ui.js: the bundle is two files, and a site
     reading one of them would pass a script that shadows a name from the other.
+
+    One name per declaration is the rule this reads by, and a test holds the
+    bundle to it: `var a = 1, b = 2;` would publish `a` and leave `b` guarding
+    nothing.
     """
     return set(re.findall(r"^(?:function|var)\s+(\w+)", ui_js(), re.M))
 
