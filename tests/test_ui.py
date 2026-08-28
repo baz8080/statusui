@@ -324,10 +324,9 @@ console.log(JSON.stringify(Object.keys(ctx)));
         doctored = statusui.ui_js() + "\nvar zqA = 1, zqB = 2;\n"
         engine = self.declared(doctored)
         self.assertIn("zqB", engine)
-        # js_globals itself, not a copy of its regex: a copy would agree with
+        # the shipped parser, not a copy of its regex: a copy would agree with
         # whatever this test was written against rather than with the function
-        self.assertNotEqual(statusui.js_globals(doctored), engine)
-        self.assertEqual(statusui.js_globals(doctored), engine - {"zqB"})
+        self.assertEqual(statusui._declared(doctored), engine - {"zqB"})
 
 
 @unittest.skipUnless(shutil.which("node"), "node not available")

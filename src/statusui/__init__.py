@@ -58,11 +58,12 @@ def caption_js():
     return (HERE / "caption.js").read_text(encoding="utf-8")
 
 
-def js_globals(js=None):
+def js_globals():
     """Every name the inlined script declares, for a consumer's redeclaration test.
 
-    `js` is the bundle unless a caller passes other source; the tests do, to
-    drive this function itself over a case the real bundle does not contain.
+    No argument, on purpose: a site that could pass its own source could pass
+    the half of the bundle it already reads, look migrated, and still miss what
+    caption.js declares. There is one right answer and this is it.
 
     Ask here rather than parsing ui.js: the bundle is two files, and a site
     reading one of them would pass a script that shadows a name from the other.
@@ -71,7 +72,13 @@ def js_globals(js=None):
     bundle to it: `var a = 1, b = 2;` would publish `a` and leave `b` guarding
     nothing.
     """
-    return set(re.findall(r"^(?:function|var)\s+(\w+)", ui_js() if js is None else js, re.M))
+    return _declared(ui_js())
+
+
+def _declared(js):
+    """The names one script declares. The tests drive this over source the real
+    bundle does not contain; a consumer has no reason to reach past js_globals."""
+    return set(re.findall(r"^(?:function|var)\s+(\w+)", js, re.M))
 
 
 def assemble(template, markers=None):
