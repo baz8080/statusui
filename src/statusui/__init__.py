@@ -47,8 +47,10 @@ def base_css():
 
 def ui_js():
     # caption.js last: ui.js opens with the "use strict" directive, and a
-    # directive is only a directive while nothing precedes it.
-    return (HERE / "ui.js").read_text(encoding="utf-8") + caption_js()
+    # directive is only a directive while nothing precedes it. The newline is
+    # the join, not a courtesy: without it a trailing line comment in ui.js
+    # would eat caption.js's first line and every page would die on it.
+    return (HERE / "ui.js").read_text(encoding="utf-8") + "\n" + caption_js()
 
 
 def caption_js():
@@ -56,8 +58,11 @@ def caption_js():
     return (HERE / "caption.js").read_text(encoding="utf-8")
 
 
-def js_globals():
+def js_globals(js=None):
     """Every name the inlined script declares, for a consumer's redeclaration test.
+
+    `js` is the bundle unless a caller passes other source; the tests do, to
+    drive this function itself over a case the real bundle does not contain.
 
     Ask here rather than parsing ui.js: the bundle is two files, and a site
     reading one of them would pass a script that shadows a name from the other.
@@ -66,7 +71,7 @@ def js_globals():
     bundle to it: `var a = 1, b = 2;` would publish `a` and leave `b` guarding
     nothing.
     """
-    return set(re.findall(r"^(?:function|var)\s+(\w+)", ui_js(), re.M))
+    return set(re.findall(r"^(?:function|var)\s+(\w+)", ui_js() if js is None else js, re.M))
 
 
 def assemble(template, markers=None):
