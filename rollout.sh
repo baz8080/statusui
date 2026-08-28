@@ -27,12 +27,16 @@ for repo in uisce esb lifts; do
   fi
 
   # A site that reads ui.js itself sees half the bundle since caption.js split
-  # off, and its redeclaration guard silently stops covering what moved. Its
-  # own tests cannot catch that - they pass by seeing fewer names - so the
-  # rollout refuses to carry the pin until the site asks js_globals() instead.
+  # off, and its redeclaration guard silently stops covering what moved - it
+  # passes by seeing fewer names, so the site's own suite cannot catch it. The
+  # pin and that switch have to land together, by hand, in that site's repo:
+  # the switch needs a statusui this rollout has not given it yet. So skip the
+  # site rather than carry a pin that quietly weakens it - and only that site,
+  # because the others are not blocked by it.
   if grep -rql '"ui\.js"' "$dir/tests" 2>/dev/null; then
-    echo "   $repo parses ui.js directly; switch it to statusui.js_globals() first" >&2
-    exit 1
+    echo "   skipped: $repo parses ui.js; bump it by hand, with the switch to js_globals()" >&2
+    git -C "$dir" checkout -q -- uv.lock
+    continue
   fi
 
   case "$repo" in
