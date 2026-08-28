@@ -8,6 +8,7 @@ fix is written once and rolled out to each site as a pinned dependency bump.
 src/statusui/__init__.py   shared build helpers, stdlib only, Python 3.11
 src/statusui/base.css      design tokens (light + dark) and every shared rule
 src/statusui/ui.js         shared browser helpers: plain ES5 globals, nothing runs at load
+src/statusui/caption.js    the day-cell caption listener alone, for pages that call only it
 rollout.sh                 bumps each consumer's pin, runs its tests, opens the three PRs
 demo/                      python3 demo/build.py → demo/out/index.html, fake data, every component
 tests/                     python3 -m unittest discover -s tests -t .
@@ -20,6 +21,13 @@ its `uv.lock`. Nothing is fetched at page-load time; the pages stay single-file 
 `statusui.assemble()` inlines `base.css` and `ui.js` into each template at the
 `<!--UI-CSS-->` and `<!--UI-JS-->` markers during the build. A site's own stylesheet and
 script follow the markers and override or extend.
+
+A template whose only script is the day-cell caption takes `<!--UI-JS-CAPTION-->` instead of
+`<!--UI-JS-->`: it gets that one listener, about 1 KB, rather than 15 KB of app it never
+calls. That is the static place pages - lifts' `s/<station>.html` today - where the bars are
+rendered by Python and the only interactive thing on the page is the caption strip. The full
+bundle still carries the listener, so an app page is unaffected and no site script may
+redeclare the name.
 
 The three site repos are expected at `../uisce`, `../esb` and `../lifts` relative to this one
 (the same sibling convention as the `../esb-data` and `../lifts-data` repos) — that is where

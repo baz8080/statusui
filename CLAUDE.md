@@ -28,7 +28,9 @@ To test an **unpushed** change against a site, run its build with the local chec
   template literals; that one is a *browser* floor and moves independently of the Python one
   — and nothing runs at load; pages call what they need. Both guarded by `tests/test_ui.py`.
 - Every global `ui.js` declares is listed in `tests/test_ui.py::JS_GLOBALS`; adding one is a
-  deliberate act, because no site script may redeclare it.
+  deliberate act, because no site script may redeclare it. `caption.js` is part of that
+  bundle and part of that list: it holds `bindDayCaption` alone so a static page can inline
+  the listener without the app, and a test keeps it that size.
 - `[hidden] { display: none !important }` is the only `!important` display rule in
   `base.css`; that is the invariant that keeps the sites' view switching working.
 

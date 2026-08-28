@@ -16,7 +16,10 @@ sys.path.insert(0, str(ROOT / "src"))
 import statusui  # noqa: E402
 
 CSS = (ROOT / "src" / "statusui" / "base.css").read_text(encoding="utf-8")
-JS = (ROOT / "src" / "statusui" / "ui.js").read_text(encoding="utf-8")
+# What a page inlines at <!--UI-JS-->, which is both JS files: every rule below
+# holds for the bundle, wherever a name lives in it.
+JS = statusui.ui_js()
+CAPTION = statusui.caption_js()
 
 # Every global ui.js defines. A consumer's test checks its own script against
 # this list, so adding a name here is a deliberate act.
@@ -101,6 +104,17 @@ class TestJs(unittest.TestCase):
     def test_declares_exactly_the_documented_globals(self):
         self.assertEqual(js_globals(JS), JS_GLOBALS)
 
+    def test_the_caption_bundle_is_the_listener_and_nothing_else(self):
+        """A static page takes this instead of the whole file, so anything that
+        drifts into it is inlined on every place page of every site."""
+        self.assertEqual(js_globals(CAPTION), {"bindDayCaption"})
+        self.assertLess(len(CAPTION), 2000, "the caption bundle has grown a body")
+
+    def test_the_bundle_is_the_app_and_the_caption(self):
+        self.assertTrue(JS.endswith(CAPTION))
+        # a directive is only a directive while nothing precedes it
+        self.assertEqual(JS.splitlines()[3], '"use strict";')
+
     def test_nothing_runs_at_load(self):
         # Top-level statements are declarations only: the page decides what to
         # call. A stray call here would run on every page that inlines the file.
@@ -145,6 +159,12 @@ class TestPython(unittest.TestCase):
         self.assertIn("function bindDayCaption", page)
         self.assertTrue(page.endswith("filled"))
         self.assertNotIn("<!--", page.replace("<!--UI", ""))
+
+    def test_a_page_can_take_the_caption_without_the_app(self):
+        page = statusui.assemble("<script><!--UI-JS-CAPTION--></script>")
+        self.assertIn("function bindDayCaption", page)
+        self.assertNotIn("function loadShard", page)
+        self.assertNotIn("<!--UI-JS", page)
 
     def test_hours_mirrors_the_js(self):
         self.assertEqual(statusui.hours(0.5), "30 min")

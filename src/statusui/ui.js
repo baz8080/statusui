@@ -96,23 +96,6 @@ function dayCells(cells, ym, describe, partial) {
   return out;
 }
 
-// One delegated listener at the document, because the bars re-render on every
-// route and month change. pointerover covers a mouse; click covers touch.
-// Touch pointerover is dropped: it fires on scroll-starts and on taps,
-// filling the strip that (hover: none) hides while empty.
-function bindDayCaption() {
-  var show = function (e) {
-    if (e.type === "pointerover" && e.pointerType === "touch") return;
-    var cell = e.target.closest(".bar i[data-cap]");
-    if (!cell) return;
-    var host = cell.closest(".row, .card");
-    var cap = host && host.querySelector(".daycap");
-    if (cap) cap.textContent = cell.dataset.cap;
-  };
-  document.addEventListener("click", show);
-  document.addEventListener("pointerover", show);
-}
-
 /* --- loading a per-place shard ------------------------------------------ */
 // A query string on a file:// URL is part of the path, so cache-busting there
 // would 404 the shard this mechanism exists to keep loadable.

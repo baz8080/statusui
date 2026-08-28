@@ -7,6 +7,9 @@ The one that matters is `assemble`: it inlines base.css and ui.js into a page
 template at the <!--UI-CSS--> and <!--UI-JS--> markers. Inlined, not linked,
 because every page is entered cold from a search result and a shared
 stylesheet would cost each of those readers a second request.
+
+A page whose only script is the day-cell caption takes <!--UI-JS-CAPTION-->
+instead, and gets that listener alone rather than 15 KB of app it never calls.
 """
 
 from __future__ import annotations
@@ -21,6 +24,7 @@ from pathlib import Path
 
 HERE = Path(__file__).parent
 UI_CSS, UI_JS = "<!--UI-CSS-->", "<!--UI-JS-->"
+UI_JS_CAPTION = "<!--UI-JS-CAPTION-->"
 
 MONTH_NAMES = (
     "January", "February", "March", "April", "May", "June",
@@ -41,12 +45,23 @@ def base_css():
 
 
 def ui_js():
-    return (HERE / "ui.js").read_text(encoding="utf-8")
+    # caption.js last: ui.js opens with the "use strict" directive, and a
+    # directive is only a directive while nothing precedes it.
+    return (HERE / "ui.js").read_text(encoding="utf-8") + caption_js()
+
+
+def caption_js():
+    """The day-cell caption listener alone, for a page that calls nothing else."""
+    return (HERE / "caption.js").read_text(encoding="utf-8")
 
 
 def assemble(template, markers=None):
     """Fill a page template: the shared CSS and JS, then each <!--NAME--> in `markers`."""
-    page = template.replace(UI_CSS, base_css()).replace(UI_JS, ui_js())
+    page = (
+        template.replace(UI_CSS, base_css())
+        .replace(UI_JS, ui_js())
+        .replace(UI_JS_CAPTION, caption_js())
+    )
     for name, text in (markers or {}).items():
         page = page.replace(f"<!--{name}-->", text)
     return page
