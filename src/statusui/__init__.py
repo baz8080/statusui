@@ -17,6 +17,7 @@ from __future__ import annotations
 import html
 import json
 import math
+import re
 import unicodedata
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
@@ -53,6 +54,15 @@ def ui_js():
 def caption_js():
     """The day-cell caption listener alone, for a page that calls nothing else."""
     return (HERE / "caption.js").read_text(encoding="utf-8")
+
+
+def js_globals():
+    """Every name the inlined script declares, for a consumer's redeclaration test.
+
+    Ask here rather than parsing ui.js: the bundle is two files, and a site
+    reading one of them would pass a script that shadows a name from the other.
+    """
+    return set(re.findall(r"^(?:function|var)\s+(\w+)", ui_js(), re.M))
 
 
 def assemble(template, markers=None):

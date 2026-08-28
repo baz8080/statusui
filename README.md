@@ -22,6 +22,10 @@ its `uv.lock`. Nothing is fetched at page-load time; the pages stay single-file 
 `<!--UI-CSS-->` and `<!--UI-JS-->` markers during the build. A site's own stylesheet and
 script follow the markers and override or extend.
 
+A consumer's redeclaration test must ask `statusui.js_globals()` for the names its own script
+may not use, rather than parsing `ui.js`: the bundle is two files now, and a site reading one
+of them would pass a script that shadows a name from the other.
+
 A template whose only script is the day-cell caption takes `<!--UI-JS-CAPTION-->` instead of
 `<!--UI-JS-->`: it gets that one listener, about 1 KB, rather than 15 KB of app it never
 calls. That is the static place pages - lifts' `s/<station>.html` today - where the bars are

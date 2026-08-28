@@ -21,8 +21,8 @@ CSS = (ROOT / "src" / "statusui" / "base.css").read_text(encoding="utf-8")
 JS = statusui.ui_js()
 CAPTION = statusui.caption_js()
 
-# Every global ui.js defines. A consumer's test checks its own script against
-# this list, so adding a name here is a deliberate act.
+# Every global the bundle defines. A consumer's test checks its own script
+# against statusui.js_globals(), so adding a name here is a deliberate act.
 JS_GLOBALS = {
     "M3", "MFULL", "D3", "PARTIAL_NOTE",
     "esc", "slug", "monthLabel", "monthLabelLong", "num", "plural",
@@ -103,6 +103,13 @@ class TestCss(unittest.TestCase):
 class TestJs(unittest.TestCase):
     def test_declares_exactly_the_documented_globals(self):
         self.assertEqual(js_globals(JS), JS_GLOBALS)
+
+    def test_the_published_set_is_the_whole_bundles(self):
+        """What consumers assert against. Parsing ui.js instead - which all three
+        did before the split - would drop bindDayCaption and let a site redeclare
+        it unnoticed."""
+        self.assertEqual(statusui.js_globals(), JS_GLOBALS)
+        self.assertIn("bindDayCaption", statusui.js_globals())
 
     def test_the_caption_bundle_is_the_listener_and_nothing_else(self):
         """A static page takes this instead of the whole file, so anything that
