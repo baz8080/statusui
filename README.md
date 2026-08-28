@@ -25,8 +25,8 @@ script follow the markers and override or extend.
 A consumer's redeclaration test must ask `statusui.js_globals()` for the names its own script
 may not use, rather than parsing `ui.js`: the bundle is two files now, and a site reading one
 of them would pass a script that shadows a name from the other - and would pass by seeing
-fewer names, so its own suite cannot catch it. `rollout.sh` skips a site whose tests still
-read the file rather than carrying the pin into it.
+fewer names, so its own suite cannot catch it - which is why it is a step on the checklist
+below rather than something a green rollout can vouch for.
 
 That guard also splits each template on `<!--UI-JS-->` to find where the site's own script
 begins. `<!--UI-JS-CAPTION-->` does not contain that string, so a template converted to the

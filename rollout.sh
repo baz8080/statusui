@@ -26,21 +26,6 @@ for repo in uisce esb lifts; do
     continue
   fi
 
-  # A site that reads ui.js itself sees half the bundle since caption.js split
-  # off, and its redeclaration guard silently stops covering what moved - it
-  # passes by seeing fewer names, so the site's own suite cannot catch it. The
-  # pin and that switch have to land together, by hand, in that site's repo:
-  # the switch needs a statusui this rollout has not given it yet. So skip the
-  # site rather than carry a pin that quietly weakens it - and only that site,
-  # because the others are not blocked by it. Asking js_globals() is the test,
-  # not the quoting of a filename: a site is clear the moment it asks.
-  if ! grep -rql 'js_globals(' "$dir/tests" 2>/dev/null &&
-     grep -rql 'ui\.js' "$dir/tests" 2>/dev/null; then
-    echo "   skipped: $repo parses ui.js; bump it by hand, with the switch to js_globals()" >&2
-    git -C "$dir" checkout -q -- uv.lock
-    continue
-  fi
-
   case "$repo" in
     uisce) (cd "$dir" && uv run -q pytest -q) ;;
     *)     (cd "$dir" && uv run -q python -m unittest discover -s tests -t .) ;;
