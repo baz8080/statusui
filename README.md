@@ -24,7 +24,9 @@ script follow the markers and override or extend.
 
 A consumer's redeclaration test must ask `statusui.js_globals()` for the names its own script
 may not use, rather than parsing `ui.js`: the bundle is two files now, and a site reading one
-of them would pass a script that shadows a name from the other.
+of them would pass a script that shadows a name from the other - and would pass by seeing
+fewer names, so its own suite cannot catch it. `rollout.sh` refuses to carry the pin into a
+site whose tests still read the file.
 
 A template whose only script is the day-cell caption takes `<!--UI-JS-CAPTION-->` instead of
 `<!--UI-JS-->`: it gets that one listener, about 1 KB, rather than 15 KB of app it never

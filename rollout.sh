@@ -26,6 +26,15 @@ for repo in uisce esb lifts; do
     continue
   fi
 
+  # A site that reads ui.js itself sees half the bundle since caption.js split
+  # off, and its redeclaration guard silently stops covering what moved. Its
+  # own tests cannot catch that - they pass by seeing fewer names - so the
+  # rollout refuses to carry the pin until the site asks js_globals() instead.
+  if grep -rql '"ui\.js"' "$dir/tests" 2>/dev/null; then
+    echo "   $repo parses ui.js directly; switch it to statusui.js_globals() first" >&2
+    exit 1
+  fi
+
   case "$repo" in
     uisce) (cd "$dir" && uv run -q pytest -q) ;;
     *)     (cd "$dir" && uv run -q python -m unittest discover -s tests -t .) ;;

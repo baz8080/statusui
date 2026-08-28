@@ -104,24 +104,6 @@ class TestJs(unittest.TestCase):
     def test_declares_exactly_the_documented_globals(self):
         self.assertEqual(js_globals(JS), JS_GLOBALS)
 
-    def test_every_top_level_declaration_names_one_global(self):
-        """js_globals() reads the first name of a declaration and no more, so a
-        second name on the same line would be published as guarded while a
-        consumer could still redeclare it. The style is the guarantee.
-
-        Strings and bracketed groups are emptied first, so what is left of a
-        declaration is its own commas: `var M3 = ["Jan", ...]` is one name and
-        `var a = 1, b = 2` is two.
-        """
-        bare = re.sub(r"/\*.*?\*/|//[^\n]*", "", JS, flags=re.S)
-        flat = re.sub(r"\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.)*'", '""', bare)
-        prev = None
-        while prev != flat:
-            prev = flat
-            flat = re.sub(r"\[[^\[\]]*\]|\{[^{}]*\}|\([^()]*\)", "", flat)
-        for statement in re.findall(r"^var\b[^;]*", flat, re.M):
-            self.assertNotIn(",", statement, f"two names in one declaration: {statement}")
-
     def test_the_published_set_is_the_whole_bundles(self):
         """What consumers assert against. Parsing ui.js instead - which all three
         did before the split - would drop bindDayCaption and let a site redeclare
@@ -296,6 +278,45 @@ class TestPython(unittest.TestCase):
             total, text = statusui.size_report(site, 4096, "pages", "pages")
         self.assertEqual(total, 2)
         self.assertNotIn("shards", text)
+
+
+@unittest.skipUnless(shutil.which("node"), "node not available")
+class TestPublishedGlobals(unittest.TestCase):
+    """Hold js_globals() to what a JavaScript engine actually declares.
+
+    Consumers get their redeclaration guard from that function, and it reads
+    the bundle with a regex - one name per declaration, column zero. Every
+    cheaper check of that assumption was itself a regex over JavaScript, and
+    the first one shipped here was fooled by the quotes inside esc()'s
+    /[&<>"']/g. So the assumption is checked against an engine instead: run the
+    bundle in a bare context and ask which names it left behind.
+    """
+
+    @staticmethod
+    def declared(js):
+        harness = f"""
+const vm = require("vm");
+const ctx = {{}};
+vm.createContext(ctx);
+vm.runInContext({json.dumps(js)}, ctx);
+console.log(JSON.stringify(Object.keys(ctx)));
+"""
+        run = subprocess.run(["node", "-e", harness], capture_output=True, text=True)
+        assert run.returncode == 0, run.stderr
+        return set(json.loads(run.stdout))
+
+    def test_the_regex_agrees_with_an_engine(self):
+        self.assertEqual(statusui.js_globals(), self.declared(statusui.ui_js()))
+
+    def test_a_second_name_on_one_line_is_caught_rather_than_dropped(self):
+        """The failure this exists for: js_globals() would publish `zqA` and
+        say nothing about `zqB`, leaving a consumer free to shadow it."""
+        doctored = statusui.ui_js() + "\nvar zqA = 1, zqB = 2;\n"
+        engine = self.declared(doctored)
+        self.assertIn("zqB", engine)
+        self.assertNotEqual(
+            set(re.findall(r"^(?:function|var)\s+(\w+)", doctored, re.M)), engine
+        )
 
 
 @unittest.skipUnless(shutil.which("node"), "node not available")
