@@ -132,14 +132,19 @@ header .sub2 { color: var(--muted); margin-top: 3px; font-size: 12.5px; }
 .row .chev { color: var(--muted); font-size: 16px; }
 
 .gradechip { width: 26px; height: 26px; border-radius: 6px; flex: none; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 14px; }
-/* B, C and D take dark lettering: their mid-range fills can't carry 4.5:1
-   white text; A and F are dark enough to hold it */
+/* Six bands, so F moved down onto --severe and E took the red F used to wear:
+   the sites grade A to F inclusive, and a scale that skips E is an
+   American-ism. B, C and D take dark lettering because their mid-range fills
+   can't carry 4.5:1 white text; A, E and F are dark enough to hold it. */
 .g-A { background: var(--good); }
 .g-B { background: color-mix(in srgb, var(--good) 60%, var(--warning)); color: #1a1a19 !important; }
 .g-C { background: var(--warning); color: #1a1a19 !important; }
 .g-D { background: var(--serious); color: #1a1a19 !important; }
-.g-F { background: var(--critical); }
-.g-none { background: var(--cell-empty); color: var(--muted) !important; font-size: 13px; }
+.g-E { background: var(--critical); }
+.g-F { background: var(--severe); }
+/* --ink-2, not --muted: a muted dash on the empty-cell fill was 4.24:1 in
+   light and 3.90:1 in dark, the one chip in the set that could not be read */
+.g-none { background: var(--cell-empty); color: var(--ink-2) !important; font-size: 13px; }
 
 .bar { display: flex; gap: 2px; height: 28px; }
 .bar i { flex: 1; border-radius: 2px; background: var(--good); min-width: 3px; }
