@@ -45,6 +45,16 @@ below, a heading for an obviously-named block, or an explanation of a standard f
 where one will do; if the reasoning needs a paragraph it belongs in the commit message or the
 PR, not above the line. This covers CI YAML as much as Python and JS.
 
+## Punctuation
+
+**No em dashes.** Not in the CSS or JS comments, the demo, `README.md`, commit messages, PR
+bodies, issue bodies or the replies in a session. The house dash is a spaced hyphen - like this
+one. Where a sentence reads better without one, write it out: "which is", "because", a colon, or
+two sentences. En dashes go the same way outside a numeric range.
+
+This binds new prose. It is not a licence for a bulk rewrite: as of 2026-08-29 this repo carries
+29 em dashes and 2 en dashes across 6 files. Fix them on lines you are already editing.
+
 ## What goes here and what does not
 
 A rule goes in `base.css` when at least two sites want it and none wants it different. The
