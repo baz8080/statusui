@@ -99,7 +99,7 @@ class TestCss(unittest.TestCase):
             for fg, fill in (("#ffffff", "--good"), ("#ffffff", "--fair"),
                              ("#ffffff", "--critical"), ("#ffffff", "--severe"),
                              ("#ffffff", "--serious-deep"),
-                             ("#1a1a19", "--warning"), ("#1a1a19", "--serious"),
+                             ("#1a1a19", "--warning"),
                              ("--ink-2", "--cell-empty")):
                 self.assertGreaterEqual(
                     contrast(tokens.get(fg, fg), tokens[fill]), 4.5, f"{fg} on {fill}")

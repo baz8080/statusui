@@ -135,7 +135,7 @@ header .sub2 { color: var(--muted); margin-top: 3px; font-size: 12.5px; }
 .g-A { background: var(--good); }
 .g-B { background: var(--fair); }
 .g-C { background: var(--warning); color: #1a1a19 !important; }
-.g-D { background: var(--serious); color: #1a1a19 !important; }
+.g-D { background: var(--serious-deep); }
 .g-E { background: var(--critical); }
 .g-F { background: var(--severe); }
 .g-none { background: var(--cell-empty); color: var(--ink-2) !important; font-size: 13px; }
