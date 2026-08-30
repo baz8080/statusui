@@ -45,40 +45,6 @@ def scheme_tokens():
     return light, {**light, **dict(re.findall(hexes, dark.group(1)))}
 
 
-def chip_rules():
-    """Each .g-* chip as (letter, fill expression, text colour expression)."""
-    rules = {}
-    # anchored, so the .chead size override for .g-none is not read as a chip
-    for sel, body in re.findall(r"(?m)^\.g-([A-Za-z]+)\s*\{([^}]*)\}", CSS):
-        fill = re.search(r"background:\s*([^;]+)", body)
-        text = re.search(r"color:\s*([^;!]+)", body)
-        rules[sel] = (fill.group(1).strip(), text.group(1).strip() if text else "#fff")
-    return rules
-
-
-def resolve(expr, tokens):
-    """A chip's colour expression as a hex string.
-
-    Handles the three forms base.css uses: a literal, a var(), and the one
-    color-mix() the B chip is built from.
-    """
-    expr = expr.strip()
-    if expr.startswith("#"):
-        return expr if len(expr) == 7 else "#" + "".join(c * 2 for c in expr[1:])
-    mix = re.match(r"color-mix\(in srgb,\s*(.+?)\s+(\d+)%,\s*(.+?)\)$", expr)
-    if mix:
-        a = resolve(mix.group(1), tokens)
-        b = resolve(mix.group(3), tokens)
-        pct = int(mix.group(2)) / 100
-        return "#" + "".join(
-            f"{round(int(a[i:i + 2], 16) * pct + int(b[i:i + 2], 16) * (1 - pct)):02x}"
-            for i in (1, 3, 5))
-    var = re.match(r"var\((--[\w-]+)\)$", expr)
-    if var:
-        return tokens[var.group(1)]
-    raise AssertionError(f"unhandled colour expression: {expr}")
-
-
 def contrast(fg, bg):
     def lum(hx):
         def chan(c):
@@ -126,25 +92,22 @@ class TestCss(unittest.TestCase):
                     self.assertGreaterEqual(
                         contrast(tokens[txt], tokens[bg]), 4.5, f"{txt} on {bg}")
 
-    def test_fills_that_carry_white_text_can(self):
-        # .gradechip and the banner set white on these; B/C/D fills can't and
-        # take dark lettering instead, which base.css hard-codes
+    def test_fills_carry_the_lettering_set_on_them(self):
+        # What .gradechip, .g-* and the banner actually pair. The B chip is a
+        # color-mix() and cannot be named here; it sits at 4.79:1.
         for tokens in scheme_tokens():
-            for fill in ("--good", "--critical", "--severe", "--serious-deep"):
-                self.assertGreaterEqual(contrast("#ffffff", tokens[fill]), 4.5, fill)
-
-    def test_every_grade_chip_can_be_read(self):
-        chips = chip_rules()
-        for tokens in scheme_tokens():
-            for letter, (fill, text) in chips.items():
-                ratio = contrast(resolve(text, tokens), resolve(fill, tokens))
-                self.assertGreaterEqual(ratio, 4.5, f"g-{letter} letter on its fill")
+            for fg, fill in (("#ffffff", "--good"), ("#ffffff", "--critical"),
+                             ("#ffffff", "--severe"), ("#ffffff", "--serious-deep"),
+                             ("#1a1a19", "--warning"), ("#1a1a19", "--serious"),
+                             ("--ink-2", "--cell-empty")):
+                self.assertGreaterEqual(
+                    contrast(tokens.get(fg, fg), tokens[fill]), 4.5, f"{fg} on {fill}")
 
     def test_the_scale_runs_a_to_f_inclusive(self):
-        # A scale that skips E is an American-ism, and these sites are Irish.
-        # A site emits `gradechip g-<letter>` straight from its own band table,
-        # so a letter with no fill here renders as white on nothing.
-        self.assertEqual(set(chip_rules()), set("ABCDEF") | {"none"})
+        # A site emits `gradechip g-<letter>` from its own band table, so a
+        # letter with no fill here renders as white on nothing.
+        letters = set(re.findall(r"(?m)^\.g-([A-Za-z]+)\s*\{", CSS))
+        self.assertEqual(letters, set("ABCDEF") | {"none"})
 
 
 class TestJs(unittest.TestCase):

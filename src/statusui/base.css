@@ -138,8 +138,6 @@ header .sub2 { color: var(--muted); margin-top: 3px; font-size: 12.5px; }
 .g-D { background: var(--serious); color: #1a1a19 !important; }
 .g-E { background: var(--critical); }
 .g-F { background: var(--severe); }
-/* --ink-2, not --muted: a muted dash on the empty-cell fill was 4.24:1 in
-   light and 3.90:1 in dark, the one chip in the set that could not be read */
 .g-none { background: var(--cell-empty); color: var(--ink-2) !important; font-size: 13px; }
 
 .bar { display: flex; gap: 2px; height: 28px; }
