@@ -93,11 +93,12 @@ class TestCss(unittest.TestCase):
                         contrast(tokens[txt], tokens[bg]), 4.5, f"{txt} on {bg}")
 
     def test_fills_carry_the_lettering_set_on_them(self):
-        # What .gradechip, .g-* and the banner actually pair. The B chip is a
-        # color-mix() and cannot be named here; it sits at 4.79:1.
+        # What .gradechip, .g-* and the banner actually pair. Every chip is a
+        # plain token now, so every chip is in here.
         for tokens in scheme_tokens():
-            for fg, fill in (("#ffffff", "--good"), ("#ffffff", "--critical"),
-                             ("#ffffff", "--severe"), ("#ffffff", "--serious-deep"),
+            for fg, fill in (("#ffffff", "--good"), ("#ffffff", "--fair"),
+                             ("#ffffff", "--critical"), ("#ffffff", "--severe"),
+                             ("#ffffff", "--serious-deep"),
                              ("#1a1a19", "--warning"), ("#1a1a19", "--serious"),
                              ("--ink-2", "--cell-empty")):
                 self.assertGreaterEqual(

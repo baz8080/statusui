@@ -9,7 +9,7 @@
   --page: #f9f9f7; --surface: #fcfcfb;
   --ink: #0b0b0b; --ink-2: #52514e; --muted: #6e6c66;
   --grid: #e1e0d9; --border: rgba(11,11,11,0.10);
-  --good: #087f08; --warning: #fab219; --serious: #ec835a;
+  --good: #087f08; --fair: #5a7a10; --warning: #fab219; --serious: #ec835a;
   --critical: #d03b3b; --severe: #8f1d1d; --maint: #1e62b8;
   --cell-empty: #e8e7e1;
   --good-text: #0a7c0a; --warning-text: #8a6001;
@@ -133,7 +133,7 @@ header .sub2 { color: var(--muted); margin-top: 3px; font-size: 12.5px; }
 
 .gradechip { width: 26px; height: 26px; border-radius: 6px; flex: none; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 14px; }
 .g-A { background: var(--good); }
-.g-B { background: color-mix(in srgb, var(--good) 60%, var(--warning)); color: #1a1a19 !important; }
+.g-B { background: var(--fair); }
 .g-C { background: var(--warning); color: #1a1a19 !important; }
 .g-D { background: var(--serious); color: #1a1a19 !important; }
 .g-E { background: var(--critical); }
