@@ -60,8 +60,7 @@ def resolve(expr, tokens):
     """A chip's colour expression as a hex string.
 
     Handles the three forms base.css uses: a literal, a var(), and the one
-    color-mix() the B chip is built from. Written out rather than pulled in,
-    because this file may not grow a dependency.
+    color-mix() the B chip is built from.
     """
     expr = expr.strip()
     if expr.startswith("#"):
@@ -135,11 +134,6 @@ class TestCss(unittest.TestCase):
                 self.assertGreaterEqual(contrast("#ffffff", tokens[fill]), 4.5, fill)
 
     def test_every_grade_chip_can_be_read(self):
-        # The claim above the .g-* block, held to per chip rather than per
-        # token: whichever lettering a chip takes has to clear 4.5:1 on the
-        # fill that chip actually gets, in both schemes. The token-level test
-        # above cannot see through color-mix(), so B went unguarded until a
-        # sixth band made the ramp worth checking end to end.
         chips = chip_rules()
         for tokens in scheme_tokens():
             for letter, (fill, text) in chips.items():
