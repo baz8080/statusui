@@ -92,12 +92,23 @@ class TestCss(unittest.TestCase):
                     self.assertGreaterEqual(
                         contrast(tokens[txt], tokens[bg]), 4.5, f"{txt} on {bg}")
 
-    def test_fills_that_carry_white_text_can(self):
-        # .gradechip and the banner set white on these; B/C/D fills can't and
-        # take dark lettering instead, which base.css hard-codes
+    def test_fills_carry_the_lettering_set_on_them(self):
+        # What .gradechip, .g-* and the banner actually pair. Every chip is a
+        # plain token now, so every chip is in here.
         for tokens in scheme_tokens():
-            for fill in ("--good", "--critical", "--severe", "--serious-deep"):
-                self.assertGreaterEqual(contrast("#ffffff", tokens[fill]), 4.5, fill)
+            for fg, fill in (("#ffffff", "--good"), ("#ffffff", "--fair"),
+                             ("#ffffff", "--critical"), ("#ffffff", "--severe"),
+                             ("#ffffff", "--serious-deep"),
+                             ("#1a1a19", "--warning"),
+                             ("--ink-2", "--cell-empty")):
+                self.assertGreaterEqual(
+                    contrast(tokens.get(fg, fg), tokens[fill]), 4.5, f"{fg} on {fill}")
+
+    def test_the_scale_runs_a_to_f_inclusive(self):
+        # A site emits `gradechip g-<letter>` from its own band table, so a
+        # letter with no fill here renders as white on nothing.
+        letters = set(re.findall(r"(?m)^\.g-([A-Za-z]+)\s*\{", CSS))
+        self.assertEqual(letters, set("ABCDEF") | {"none"})
 
 
 class TestJs(unittest.TestCase):

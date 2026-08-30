@@ -40,6 +40,7 @@
       <p class="basis" id="basis">Graded on a made-up aim. <span class="hoverhint">Hover a day in a bar for its detail.</span></p>
       <div id="list"></div>
       <div class="legend" id="legend"></div>
+      <div class="legend" id="gradekey"></div>
       <h3 class="natheading">Nationally this month</h3>
       <div class="tiles" id="tiles"></div>
     </section>
@@ -131,6 +132,12 @@ document.getElementById("legend").innerHTML =
     return '<span><i class="b' + l[0] + '" style="background:var(' +
       ["--good","--warning","--serious","--critical","--severe","--maint","","","--cell-empty"][l[0]] +
       ')"></i>' + esc(l[1]) + "</span>";
+  }).join("");
+// every chip in the set, so a look at this page covers the whole ramp rather
+// than the three letters the fixture happens to use
+document.getElementById("gradekey").innerHTML =
+  ["A", "B", "C", "D", "E", "F", null].map(function (g) {
+    return "<span>" + gradeChip(g) + (g ? "grade " + g : "not graded") + "</span>";
   }).join("");
 function tile(v, k) { return '<div class="tile"><div class="v">' + esc(v) + '</div><div class="k">' + esc(k) + "</div></div>"; }
 document.getElementById("tiles").innerHTML = [tile("93.1%", "back inside 4 hours"), tile(num(12345), "customers hit"),
