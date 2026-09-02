@@ -613,7 +613,8 @@ console.log(JSON.stringify([countyHit, areaHit, picked]));
 class TestFreshness(unittest.TestCase):
     """freshness() has no Python twin, so it is exercised under node directly."""
 
-    STALE = '<span class="stale">Updated %s</span>'
+    NOTE = "the last data build may have failed"
+    STALE = '<span class="stale">Updated %s - ' + NOTE + "</span>"
     # (minutes before "now", staleHours, expected)
     CASES = [
         (-20, 16, "Updated just now"),          # a reader's clock running fast
