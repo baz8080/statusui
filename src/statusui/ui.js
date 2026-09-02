@@ -283,9 +283,11 @@ function bindSearch(opts) {
 // A healthy overnight gap is a big number, and no wording makes a big number
 // read as fine, so the warning past `staleHours` - not the wording - carries
 // "something is wrong". Its absence is the reassurance, and it costs no words
-// on a normal render. Why the data is old is not something the page can know:
-// a build that stopped looks exactly like a collector that did, so it says
-// neither and leaves the reader with the one fact it has.
+// on a normal render.
+//
+// The note names the likeliest cause and hedges, because the page cannot tell
+// a stalled build from a stalled collector: "may have failed" is a reading the
+// reader can act on without the page asserting something it does not know.
 //
 // Measured against the reader's clock, so a page served from cache says so.
 function freshness(iso, staleHours) {
@@ -300,7 +302,8 @@ function freshness(iso, staleHours) {
   else age = plural(Math.round(mins / 1440), "day") + " ago";
   // on the exact minutes, not the rounded age, or the warning fires early
   if (mins < staleHours * 60) return "Updated " + age;
-  return '<span class="stale">Updated ' + age + "</span>";
+  return '<span class="stale">Updated ' + age +
+    " - the last data build may have failed</span>";
 }
 
 /* --- the build stamp ----------------------------------------------------- */
