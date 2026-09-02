@@ -613,8 +613,7 @@ console.log(JSON.stringify([countyHit, areaHit, picked]));
 class TestFreshness(unittest.TestCase):
     """freshness() has no Python twin, so it is exercised under node directly."""
 
-    NOTE = "collection has stopped"
-    STALE = '<span class="stale">Updated %s - ' + NOTE + "</span>"
+    STALE = '<span class="stale">Updated %s</span>'
     # (minutes before "now", staleHours, expected)
     CASES = [
         (-20, 16, "Updated just now"),          # a reader's clock running fast
@@ -625,7 +624,7 @@ class TestFreshness(unittest.TestCase):
         (60, 16, "Updated 1 hour ago"),
         (719, 16, "Updated 12 hours ago"),      # 11h59m rounds up, never down
         (959, 16, "Updated 16 hours ago"),      # the age rounds to 16h ...
-        (960, 16, STALE % "16 hours ago"),          # ... but only 16h exactly is overdue
+        (960, 16, STALE % "16 hours ago"),  # ... but only 16h exactly is overdue
         (1439, 24, "Updated 24 hours ago"),     # one unit all the way up
         (1440, 24, STALE % "1 day ago"),
         (4320, 24, STALE % "3 days ago"),
@@ -636,8 +635,7 @@ class TestFreshness(unittest.TestCase):
         harness = JS + f"""
 Date.now = function () {{ return Date.parse("2026-08-26T12:00:00Z"); }};
 console.log(JSON.stringify({cases}.map(function (c) {{
-  return freshness(new Date(Date.now() - c[0] * 60000).toISOString(), c[1],
-                   {json.dumps(self.NOTE)});
+  return freshness(new Date(Date.now() - c[0] * 60000).toISOString(), c[1]);
 }})));
 """
         run = subprocess.run(["node", "-e", harness], capture_output=True, text=True)

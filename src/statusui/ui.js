@@ -281,12 +281,14 @@ function bindSearch(opts) {
 // answer the only question they had: is this current? An age answers it.
 //
 // A healthy overnight gap is a big number, and no wording makes a big number
-// read as fine, so the warning past `staleHours` — not the wording — carries
+// read as fine, so the warning past `staleHours` - not the wording - carries
 // "something is wrong". Its absence is the reassurance, and it costs no words
-// on a normal render. `note` is what having gone stale means on this site.
+// on a normal render. Why the data is old is not something the page can know:
+// a build that stopped looks exactly like a collector that did, so it says
+// neither and leaves the reader with the one fact it has.
 //
 // Measured against the reader's clock, so a page served from cache says so.
-function freshness(iso, staleHours, note) {
+function freshness(iso, staleHours) {
   var mins = Math.round((Date.now() - Date.parse(iso)) / 60000);
   // a wrong clock or a stale cache must never render as "in 20 minutes"
   if (mins < 2) return "Updated just now";
@@ -298,15 +300,14 @@ function freshness(iso, staleHours, note) {
   else age = plural(Math.round(mins / 1440), "day") + " ago";
   // on the exact minutes, not the rounded age, or the warning fires early
   if (mins < staleHours * 60) return "Updated " + age;
-  return '<span class="stale">Updated ' + age + " - " + esc(note) + "</span>";
+  return '<span class="stale">Updated ' + age + "</span>";
 }
 
 /* --- the build stamp ----------------------------------------------------- */
 // How far the data behind this page reaches. The build clock (D.generated)
 // stays out of it: a reader cares where the record stops, not when the site
-// was assembled. When the gap between the two grows, the stale flag says the
-// collector has stopped rather than leaving the bars to read as a quiet week.
+// was assembled. Past the threshold the date itself goes red, which says the
+// record is not current without claiming to know why it is not.
 function stampLine(D) {
-  return "Data to " + (D.stale ? '<span class="stale">' : "<span>") + esc(D.observed) +
-    (D.stale ? " - collection has stopped" : "") + "</span>.";
+  return "Data to " + (D.stale ? '<span class="stale">' : "<span>") + esc(D.observed) + "</span>.";
 }
