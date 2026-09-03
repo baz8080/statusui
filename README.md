@@ -73,7 +73,9 @@ row (`.place > .row`, `.cname`, `.stats`, `.chev`, focus ring); `.gradechip` and
 `bindDayCaption`, `cacheBust`, `loadShard`, `freshness`, `stampLine`, and the place search —
 `searchHits` ranks, `bindSearch` runs the box (lazy index fetch, dropdown, pick); a site
 supplies the index file, its counties, the pick handler, and optionally a per-hit note, a
-per-hit target in the index and an `href` that turns the hits into real links. In Python: `assemble`, `slug`,
+per-hit target in the index and an `href` that turns the hits into real links. A targeted entry
+that shares its county's name keeps its own row under the county's, so the site's note has to
+tell the two apart. In Python: `assemble`, `slug`,
 `month_label`, `dumps`, `stamp`, `when`, `hours`, `days`, `day_cells`, `sitemap`, `robots`,
 `size_report`.
 
