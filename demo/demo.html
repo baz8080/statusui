@@ -149,7 +149,7 @@ document.getElementById("ptiles").innerHTML = [tile("84%", "back inside 4 hours"
 // that can only reach its county, and the demo has to show both rendering
 var DEMO_INDEX = {
   Alpha: [["Alphaville", "alphaville"], "Angleside"],
-  Beta: [["Betatown", "betatown"], "Ballybeta"],
+  Beta: [["Beta", "beta"], ["Betatown", "betatown"], "Ballybeta"],
   Gamma: ["Gammabridge"], Delta: [["Dún Delta", "dun-delta"], "Deltafield"]
 };
 bindSearch({
@@ -161,7 +161,10 @@ bindSearch({
   href: function (c, t) {
     return t ? "a/" + slug(c) + "/" + t + ".html" : "c/" + slug(c) + ".html";
   },
-  note: function (name, c, t) { return name === c ? "" : c + (t ? "" : " · county"); },
+  note: function (name, c, t) {
+    if (t) return name === c ? "town" : c;
+    return name === c ? "" : c + " · county";
+  },
   pick: function (c, t) {
     document.getElementById("q").placeholder = "Picked " + c + (t ? " / " + t : "");
     return !t;

@@ -459,15 +459,19 @@ console.log(JSON.stringify(searchHits("na", ["Kildare"],
             json.loads(run.stdout),
             [["Naas", "Kildare", "naas"], ["Nass Road", "Kildare"]])
 
-    def test_a_targeted_name_that_is_also_a_county_still_dedups(self):
+    def test_a_targeted_name_that_is_also_a_county_keeps_its_own_row(self):
+        # fourteen Irish towns share their county's name and have a page of
+        # their own; the county still ranks first, so typing "sligo" lands on
+        # the county, but the town is one row down instead of nowhere
         harness = JS + """
-console.log(JSON.stringify(searchHits("co", ["Cork"],
-  {"Cork": [["Cork", "cork"], "Cobh"]})));
+console.log(JSON.stringify(searchHits("cor", ["Cork"],
+  {"Cork": [["Cork", "cork"], "Cobh", "Corkbeg"]})));
 """
         run = subprocess.run(["node", "-e", harness], capture_output=True, text=True)
         self.assertEqual(run.returncode, 0, run.stderr)
-        # the county hit wins the key, so the county's own row stays targetless
-        self.assertEqual(json.loads(run.stdout), [["Cork", "Cork"], ["Cobh", "Cork"]])
+        self.assertEqual(
+            json.loads(run.stdout),
+            [["Cork", "Cork"], ["Cork", "Cork", "cork"], ["Corkbeg", "Cork"]])
 
     def test_hits_are_capped_at_forty(self):
         harness = JS + """
@@ -543,6 +547,29 @@ console.log(JSON.stringify(results.innerHTML));
 """)
         self.assertIn('<a href="a/kildare/naas.html"', html)
         self.assertIn('data-t="naas"', html)
+
+    def test_a_town_named_for_its_county_links_beside_the_county(self):
+        html = self.run_js("""
+var i2 = new El("input"), r2 = new El("div");
+document.activeElement = i2;
+bindSearch({
+  input: i2, results: r2, counties: ["Kildare"], src: "",
+  loaded: function () { return {Kildare: [["Kildare", "kildare"], ["Naas", "naas"]]}; },
+  href: function (c, t) {
+    return t ? "a/" + slug(c) + "/" + t + ".html" : "c/" + slug(c) + ".html";
+  },
+  pick: function () {}
+});
+i2.value = "kil"; i2.listeners.input[0]();
+console.log(JSON.stringify(r2.innerHTML));
+""")
+        self.assertIn('href="c/kildare.html"', html)
+        self.assertIn('href="a/kildare/kildare.html"', html)
+        # the county stays first, so typing its name still lands on the county
+        county = html.index('href="c/kildare.html"')
+        self.assertLess(county, html.index('href="a/kildare/kildare.html"'))
+        # and without a note the town row is not a twin of the county's
+        self.assertIn('Kildare <span class="rc">Kildare</span>', html)
 
     def test_no_href_option_leaves_the_hits_as_buttons(self):
         html = self.run_js("""
