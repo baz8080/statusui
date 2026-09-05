@@ -563,9 +563,13 @@ bindSearch({
 i2.value = "kil"; i2.listeners.input[0]();
 console.log(JSON.stringify(r2.innerHTML));
 """)
+        self.assertIn('href="c/kildare.html"', html)
+        self.assertIn('href="a/kildare/kildare.html"', html)
         # the county stays first, so typing its name still lands on the county
         county = html.index('href="c/kildare.html"')
         self.assertLess(county, html.index('href="a/kildare/kildare.html"'))
+        # and without a note the town row is not a twin of the county's
+        self.assertIn('Kildare <span class="rc">Kildare</span>', html)
 
     def test_no_href_option_leaves_the_hits_as_buttons(self):
         html = self.run_js("""

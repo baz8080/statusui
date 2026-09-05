@@ -154,10 +154,9 @@ function searchHits(q, counties, index) {
     });
   });
   hits.sort(function (a, b) { return a[2] - b[2] || a[0].localeCompare(b[0]); });
-  // one row per destination: a bare name that is also a prefix-ranked county
-  // (lifts indexes each station under itself) would otherwise render twice,
-  // but a targeted entry with its county's name is a different place - the
-  // town of Sligo has a page of its own - so the target is part of the key
+  // keyed on the target too: a targeted entry named for its county is a
+  // different destination, a bare one (lifts indexes each station under
+  // itself) is still the county's own row
   var seen = {}, out = [];
   for (var i = 0; i < hits.length && out.length < 40; i++) {
     var key = hits[i][0] + "|" + hits[i][1] + "|" + (hits[i][3] == null ? "" : hits[i][3]);
@@ -181,9 +180,8 @@ function searchHits(q, counties, index) {
 // {county: [entry]} index or falsy, pick(county, target) navigates.
 // note(name, county, target), optional, returns the annotation shown beside a
 // hit; the default is the county, dropped when the hit is the county itself.
-// A site that indexes targets must give a targeted hit named for its county
-// its own note, because the county's row sits above it and the default
-// blanks both.
+// A targeted hit named for its county keeps the county, so it never renders
+// as a twin of the county's row above it; a site will want its own word there.
 // href(county, target), optional, makes each hit a real link to that URL - a
 // search hit is an entry point rather than a drill-down, so it should be
 // something a reader can middle-click, copy and share. pick() returning true
@@ -241,7 +239,8 @@ function bindSearch(opts) {
     var hits = searchHits(q, opts.counties, idx);
     opts.results.innerHTML = hits.length
       ? hits.map(function (h) {
-          var rc = opts.note ? opts.note(h[0], h[1], h[2]) : (h[0] === h[1] ? "" : h[1]);
+          var rc = opts.note ? opts.note(h[0], h[1], h[2])
+            : (h[0] === h[1] && h[2] == null ? "" : h[1]);
           var attrs = ' data-c="' + esc(h[1]) + '"' +
             (h[2] == null ? "" : ' data-t="' + esc(h[2]) + '"');
           var body = esc(h[0]) + (rc ? ' <span class="rc">' + esc(rc) + "</span>" : "");
