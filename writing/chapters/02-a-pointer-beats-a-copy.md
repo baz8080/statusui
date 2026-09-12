@@ -149,8 +149,8 @@ with *each other*. That test harness, and what it immediately found, is chapter 
   conditionally-skipping byte-compare) lifted from uisce PR #48 / uisce series ch 14
   (20 Aug 2026).
 - Commit `da21d4f` (20 Aug, +107/−132): package, pin, `rollout.sh`; `assemble()` unchanged.
-- `rollout.sh` walk verified against the 42-line working-tree file, 27 Aug 2026 — including
+- `rollout.sh` walk verified against the 42-line working-tree file, 27 Aug 2026, including
   the detail that its uisce leg runs `pytest` and the other legs run `unittest`, a
-  difference chapter 6 returns to.
+  difference the closing chapter returns to.
 - Commit `61b642c` (21 Aug): dot removal, −9 lines here; consumer side +2/−4 from uisce
   PR #49 / series ch 14.

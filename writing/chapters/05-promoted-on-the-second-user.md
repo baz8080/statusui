@@ -153,8 +153,11 @@ Four promotions — dates, freshness, search, one sub line — in two days, each
 mirror or node test, each forced coherent by the globals treaty, each shipped through
 the pin-bump discipline. `ui.js` more than doubled in the week after the first rollout:
 142 lines on 21 August to 300 on the 27th, all of it promotion, none of it invention.
-The chapter's rule is now the repo's metabolism; what's left is to say what the whole
-thing amounts to, which is the closing chapter.
+The chapter's rule is now the repo's metabolism, and the next stretch of history tests it
+in both directions: chapter 6 extends the search box promoted here, and chapter 10 has to
+correct this chapter's rule, because one of the two parameters `freshness` gained on its
+second user turned out to be a mistake being preserved rather than a difference being
+served.
 
 ## Notes
 

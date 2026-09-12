@@ -6,6 +6,25 @@ session against the working tree). *Verified* means re-run on the date given; fi
 from PR bodies, commit messages or the uisce series are quoted as recorded there, not re-run,
 and marked N.
 
+## Anchors verified 2026-09-12 (chapters 06 to 11)
+
+| Figure | Value | How | Verified |
+|---|---|---|---|
+| Source line counts | `base.css` 246 · `ui.js` 320 · `caption.js` 23 · `__init__.py` 231 (sum 820) | `wc -l src/statusui/*` | Y |
+| Test file / suite | `tests/test_ui.py` 675 lines · 54 tests, all passing | `wc -l`; `uv run python -m unittest discover -s tests -t .` | Y |
+| Tests needing node | 23 of 54 (TestPublishedGlobals 2, TestMirror 6, TestSearchHits 7, TestBindSearch 7, TestFreshness 1) | class counts in `tests/test_ui.py` | Y |
+| Bundle sizes | `ui_js()` 16,270 bytes (15.9 KB) · `caption_js()` 1,123 bytes (1.1 KB) · difference 14.8 KB | `len(...encode())` via the package | Y |
+| `js_globals()` | 26 names, equal to `JS_GLOBALS`, includes `bindDayCaption` | the function; `tests/test_ui.py` | Y |
+| Grade chips | `.g-A` `--good` · `.g-B` `--fair` (#5a7a10) · `.g-C` `--warning` + `#1a1a19` · `.g-D` `--serious-deep` · `.g-E` `--critical` · `.g-F` `--severe` · `.g-none` `--cell-empty` + `--ink-2`; letter set = A-F plus none | `base.css`; `test_the_scale_runs_a_to_f_inclusive` | Y |
+| `freshness` signature | `freshness(iso, staleHours)`, sentence "the last data build may have failed" inside the function | `src/statusui/ui.js` | Y |
+| Search dedup key | name + county + target; default note keeps the county when a targeted hit is named for it | `searchHits`, `bindSearch` in `ui.js` | Y |
+| Slug divergence | `Dún Laoghaire` → Python `dun-laoghaire`, JS `d-n-laoghaire`; `Béal Átha na Sluaighe` → `beal-atha-na-sluaighe` vs `b-al-tha-na-sluaighe` | ran `ui.js` under node against `statusui.slug` | Y |
+| History | 61 commits, 14 PRs, 19 Aug to 5 Sep 2026 | `git rev-list --count`; GitHub PR list | Y |
+| Em dashes | 27 em + 2 en across 6 files on `main` (was 29 + 2 on 29 Aug, per `CLAUDE.md`); 222 em across the 10 files of `writing/` | `grep -o` counts | Y |
+| Stale docstring | `__init__.py` line 4 still says "Python 3.9 syntax" vs `requires-python >=3.11`; unchanged since 27 Aug | read | Y |
+| README step 5 | open: consumers still read `ui.js` off disk and split templates on one marker | `README.md` | Y |
+| `rollout.sh` | 42 lines, no gate: a pin bumper again | the file | Y |
+
 ## Anchors verified 2026-08-27
 
 | Figure | Value | How | Verified |
@@ -52,3 +71,24 @@ and marked N.
 | uisce test count | 443 | uisce series ch 16 / PROGRESS, 26 Aug 2026 |
 | uisce series scale | 61 PRs, ~8 weeks, ~200 commits | uisce series intro and ledger |
 | Contrast fix that never reached esb | landed on uisce 18 Aug 2026 | uisce series ch 14 |
+
+## Lifted figures, chapters 06 to 10 (source + date recorded; not re-run)
+
+| Figure | Value | Source |
+|---|---|---|
+| Derived-slug breakage | about 20 Irish place names would get a URL that does not exist | PR #8 / commit `e2910d5`, 27 Aug 2026 |
+| Backward-compatibility guard | the five existing `searchHits` cases pass unmodified | PR #8, 27 Aug 2026 |
+| Click-handler holes | modified click swallowed before `pick()` on a no-href site; Alt missing from the modifier list; `closest()` unbounded past the dropdown | commit `84578c7`, 27 Aug 2026 |
+| Caption split saving on lifts | twenty station pages 732.7 KB → 467.1 KB (265.6 KB, 13.3 KB a page) | PR #9 / commit `6c99e87`, 28 Aug 2026 |
+| Bundle at the time of the split | 1.1 KB caption vs 15.8 KB bundle | commit `6c99e87`, 28 Aug 2026 |
+| Regex fooled by `esc()` | `var zqA = 1, zqB = 2;` left the test green anywhere below line 12; the author's own check had injected above it | commit `7203cdd`, 28 Aug 2026 |
+| Rollout gate failures | four rounds: aborts the whole run at uisce; matches only double-quoted `"ui.js"`; `js_globals(` anywhere under `tests/` opens it; skipped site exits 0; `ui.js` is a substring of `statusui.js_globals` | commits `0a20abb`, `73f772c`, `050c9a8`, 28 Aug 2026 |
+| Em dash count when the rule landed | 29 em dashes and 2 en dashes across 6 files | PR #10 / `CLAUDE.md`, 29 Aug 2026 |
+| Chip contrast, WCAG 2 | A 5.19 · B 4.79 · C 9.49 · D 6.60 · E 4.80 · F 8.89 light, 6.52 dark | PR #11 / commit `f7d9562`, 29 Aug 2026 |
+| `.g-none` before and after | 4.24 light / 3.90 dark on `--muted`; 6.41 / 7.81 on `--ink-2` | commit `f7d9562`, 29 Aug 2026 |
+| Rejected E colour | `#de5f4a`, white on it 3.59:1; D/E/F within delta-E 12 to 15 | commit `f7d9562`, 29 Aug 2026 |
+| Separation | delta-E 28 (D to E), 20.7 light / 8.9 dark (E to F), 24.0 (B to A), 59.0 (B to C), 13.3 (B's move), 20.2 (D to E, final) | commits `f7d9562`, `58c086d`, `855023b` |
+| The two metrics on old B | WCAG 2: dark ink 4.79:1, white 3.63:1. APCA: dark ink Lc 38.6, white Lc 69.2; next-worst chip D at Lc 51.3 | commit `58c086d`, 30 Aug 2026 |
+| `--fair` and `--serious-deep` | white on `--fair` 4.97:1 / Lc 79.6; on `--serious-deep` 5.36:1 / Lc 81.3; A 5.19 / Lc 80.4, E 4.80 / Lc 77.5 | commits `58c086d`, `855023b`, 30 Aug 2026 |
+| The false banner | "Updated 22 hours ago - collection has stopped" while the collector had pushed on schedule | PR #12 / commit `1d99bcf`, 2 Sep 2026 |
+| Fourteen towns named for their county | Carlow, Cavan, Donegal, Kildare, Kilkenny, Leitrim, Longford, Louth, Monaghan, Roscommon, Sligo, Tipperary, Wexford, Wicklow | PR #14 / commit `eecdf2d`, 3 Sep 2026 |
