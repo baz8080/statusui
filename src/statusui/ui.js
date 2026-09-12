@@ -96,23 +96,6 @@ function dayCells(cells, ym, describe, partial) {
   return out;
 }
 
-// One delegated listener at the document, because the bars re-render on every
-// route and month change. pointerover covers a mouse; click covers touch.
-// Touch pointerover is dropped: it fires on scroll-starts and on taps,
-// filling the strip that (hover: none) hides while empty.
-function bindDayCaption() {
-  var show = function (e) {
-    if (e.type === "pointerover" && e.pointerType === "touch") return;
-    var cell = e.target.closest(".bar i[data-cap]");
-    if (!cell) return;
-    var host = cell.closest(".row, .card");
-    var cap = host && host.querySelector(".daycap");
-    if (cap) cap.textContent = cell.dataset.cap;
-  };
-  document.addEventListener("click", show);
-  document.addEventListener("pointerover", show);
-}
-
 /* --- loading a per-place shard ------------------------------------------ */
 // A query string on a file:// URL is part of the path, so cache-busting there
 // would 404 the shard this mechanism exists to keep loadable.
@@ -144,10 +127,16 @@ function loadShard(state, key, src, isLoaded, done) {
 }
 
 /* --- the place search ---------------------------------------------------- */
-// Ranked hits for a place query against {county: [names]}: counties whose own
-// name starts with q come first, then indexed names by how early they match,
-// alphabetical within a rank, capped at 40 so one keystroke cannot render a
-// thousand buttons. Pure, and lowercases q itself, so it is safe standalone.
+// Ranked hits for a place query against {county: [entry]}, where an entry is a
+// name or a [name, target] pair: counties whose own name starts with q come
+// first, then indexed names by how early they match, alphabetical within a
+// rank, capped at 40 so one keystroke cannot render a thousand buttons. Pure,
+// and lowercases q itself, so it is safe standalone.
+//
+// A hit is [name, county], or [name, county, target] when the entry carried
+// one. The target is shipped by the site rather than derived here because the
+// slug above is not statusui.slug: it leaves a fada as a dash, which would send
+// 20 of Ireland's place names to a URL that does not exist.
 function searchHits(q, counties, index) {
   q = q.toLowerCase();
   var hits = [];
@@ -157,20 +146,27 @@ function searchHits(q, counties, index) {
     if (c.toLowerCase().indexOf(q) === 0) hits.push([c, c, 0]);
   });
   counties.forEach(function (c) {
-    (index[c] || []).forEach(function (name) {
+    (index[c] || []).forEach(function (entry) {
+      var plain = typeof entry === "string";
+      var name = plain ? entry : entry[0];
       var at = name.toLowerCase().indexOf(q);
-      if (at !== -1) hits.push([name, c, at + 1]);
+      if (at !== -1) hits.push([name, c, at + 1, plain ? null : entry[1]]);
     });
   });
   hits.sort(function (a, b) { return a[2] - b[2] || a[0].localeCompare(b[0]); });
-  // one button per place: a name that is also a prefix-ranked county (lifts
-  // indexes each station under itself) would otherwise render twice
+  // keyed on the target too: a targeted entry named for its county is a
+  // different destination, a bare one (lifts indexes each station under
+  // itself) is still the county's own row
   var seen = {}, out = [];
   for (var i = 0; i < hits.length && out.length < 40; i++) {
-    var key = hits[i][0] + "|" + hits[i][1];
+    var key = hits[i][0] + "|" + hits[i][1] + "|" + (hits[i][3] == null ? "" : hits[i][3]);
     if (!seen[key]) {
       seen[key] = true;
-      out.push([hits[i][0], hits[i][1]]);
+      // the pair stays a pair when there is no target, so a site that indexes
+      // plain names sees exactly the shape it saw before
+      out.push(hits[i][3] == null
+        ? [hits[i][0], hits[i][1]]
+        : [hits[i][0], hits[i][1], hits[i][3]]);
     }
   }
   return out;
@@ -181,9 +177,16 @@ function searchHits(q, counties, index) {
 // keystroke instead of loading for every reader who never searches.
 // opts: input and results are elements, counties an array of county names,
 // src the index URL (already cache-busted), loaded() returns the
-// {county: [names]} index or falsy, pick(county) navigates. note(name, county),
-// optional, returns the annotation shown beside a hit; the default is the
-// county, dropped when the hit is the county itself.
+// {county: [entry]} index or falsy, pick(county, target) navigates.
+// note(name, county, target), optional, returns the annotation shown beside a
+// hit; the default is the county, dropped when the hit is the county itself.
+// A targeted hit named for its county keeps the county, so it never renders
+// as a twin of the county's row above it; a site will want its own word there.
+// href(county, target), optional, makes each hit a real link to that URL - a
+// search hit is an entry point rather than a drill-down, so it should be
+// something a reader can middle-click, copy and share. pick() returning true
+// means it was handled in the app and the link is suppressed; anything else
+// lets the browser follow it. Without href the hits stay buttons.
 function bindSearch(opts) {
   var state = null, waiting = [];
   function ensure(then) {
@@ -236,9 +239,14 @@ function bindSearch(opts) {
     var hits = searchHits(q, opts.counties, idx);
     opts.results.innerHTML = hits.length
       ? hits.map(function (h) {
-          var rc = opts.note ? opts.note(h[0], h[1]) : (h[0] === h[1] ? "" : h[1]);
-          return '<button data-c="' + esc(h[1]) + '">' + esc(h[0]) +
-            (rc ? ' <span class="rc">' + esc(rc) + "</span>" : "") + "</button>";
+          var rc = opts.note ? opts.note(h[0], h[1], h[2])
+            : (h[0] === h[1] && h[2] == null ? "" : h[1]);
+          var attrs = ' data-c="' + esc(h[1]) + '"' +
+            (h[2] == null ? "" : ' data-t="' + esc(h[2]) + '"');
+          var body = esc(h[0]) + (rc ? ' <span class="rc">' + esc(rc) + "</span>" : "");
+          return opts.href
+            ? '<a href="' + esc(opts.href(h[1], h[2])) + '"' + attrs + ">" + body + "</a>"
+            : "<button" + attrs + ">" + body + "</button>";
         }).join("")
       : '<div class="none">Nothing matching “' + esc(q) + '”</div>';
   }
@@ -253,11 +261,19 @@ function bindSearch(opts) {
   // data-c rather than an inline onclick: a name with an apostrophe would need
   // escaping twice over, and one delegated listener survives every re-render.
   opts.results.addEventListener("click", function (e) {
-    var b = e.target.closest("button[data-c]");
-    if (!b) return;
+    var b = e.target.closest("[data-c]");
+    // bounded to the dropdown: the selector lost its `button` qualifier when
+    // hits became links, so an unmatched click would otherwise climb out of
+    // the box and pick up any ancestor a site happens to mark with data-c
+    if (!b || !opts.results.contains(b)) return;
+    // a modified click on a real link is the reader asking for a new tab, so
+    // it is the browser's to handle. Only when there is a link: without href a
+    // hit is a button, nothing would follow it, and the pick still has to run.
+    if (opts.href &&
+        (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button)) return;
     opts.input.value = "";
     opts.results.hidden = true;
-    opts.pick(b.dataset.c);
+    if (opts.pick(b.dataset.c, b.dataset.t) === true) e.preventDefault();
   });
   document.addEventListener("click", function (e) {
     if (!e.target.closest(".search")) opts.results.hidden = true;
@@ -269,12 +285,16 @@ function bindSearch(opts) {
 // answer the only question they had: is this current? An age answers it.
 //
 // A healthy overnight gap is a big number, and no wording makes a big number
-// read as fine, so the warning past `staleHours` — not the wording — carries
+// read as fine, so the warning past `staleHours` - not the wording - carries
 // "something is wrong". Its absence is the reassurance, and it costs no words
-// on a normal render. `note` is what having gone stale means on this site.
+// on a normal render.
+//
+// The note names the likeliest cause and hedges, because the page cannot tell
+// a stalled build from a stalled collector: "may have failed" is a reading the
+// reader can act on without the page asserting something it does not know.
 //
 // Measured against the reader's clock, so a page served from cache says so.
-function freshness(iso, staleHours, note) {
+function freshness(iso, staleHours) {
   var mins = Math.round((Date.now() - Date.parse(iso)) / 60000);
   // a wrong clock or a stale cache must never render as "in 20 minutes"
   if (mins < 2) return "Updated just now";
@@ -286,15 +306,15 @@ function freshness(iso, staleHours, note) {
   else age = plural(Math.round(mins / 1440), "day") + " ago";
   // on the exact minutes, not the rounded age, or the warning fires early
   if (mins < staleHours * 60) return "Updated " + age;
-  return '<span class="stale">Updated ' + age + " - " + esc(note) + "</span>";
+  return '<span class="stale">Updated ' + age +
+    " - the last data build may have failed</span>";
 }
 
 /* --- the build stamp ----------------------------------------------------- */
 // How far the data behind this page reaches. The build clock (D.generated)
 // stays out of it: a reader cares where the record stops, not when the site
-// was assembled. When the gap between the two grows, the stale flag says the
-// collector has stopped rather than leaving the bars to read as a quiet week.
+// was assembled. Past the threshold the date itself goes red, which says the
+// record is not current without claiming to know why it is not.
 function stampLine(D) {
-  return "Data to " + (D.stale ? '<span class="stale">' : "<span>") + esc(D.observed) +
-    (D.stale ? " - collection has stopped" : "") + "</span>.";
+  return "Data to " + (D.stale ? '<span class="stale">' : "<span>") + esc(D.observed) + "</span>.";
 }

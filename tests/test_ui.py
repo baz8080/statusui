@@ -16,10 +16,13 @@ sys.path.insert(0, str(ROOT / "src"))
 import statusui  # noqa: E402
 
 CSS = (ROOT / "src" / "statusui" / "base.css").read_text(encoding="utf-8")
-JS = (ROOT / "src" / "statusui" / "ui.js").read_text(encoding="utf-8")
+# What a page inlines at <!--UI-JS-->, which is both JS files: every rule below
+# holds for the bundle, wherever a name lives in it.
+JS = statusui.ui_js()
+CAPTION = statusui.caption_js()
 
-# Every global ui.js defines. A consumer's test checks its own script against
-# this list, so adding a name here is a deliberate act.
+# Every global the bundle defines. A consumer's test checks its own script
+# against statusui.js_globals(), so adding a name here is a deliberate act.
 JS_GLOBALS = {
     "M3", "MFULL", "D3", "PARTIAL_NOTE",
     "esc", "slug", "monthLabel", "monthLabelLong", "num", "plural",
@@ -89,17 +92,46 @@ class TestCss(unittest.TestCase):
                     self.assertGreaterEqual(
                         contrast(tokens[txt], tokens[bg]), 4.5, f"{txt} on {bg}")
 
-    def test_fills_that_carry_white_text_can(self):
-        # .gradechip and the banner set white on these; B/C/D fills can't and
-        # take dark lettering instead, which base.css hard-codes
+    def test_fills_carry_the_lettering_set_on_them(self):
+        # What .gradechip, .g-* and the banner actually pair. Every chip is a
+        # plain token now, so every chip is in here.
         for tokens in scheme_tokens():
-            for fill in ("--good", "--critical", "--severe", "--serious-deep"):
-                self.assertGreaterEqual(contrast("#ffffff", tokens[fill]), 4.5, fill)
+            for fg, fill in (("#ffffff", "--good"), ("#ffffff", "--fair"),
+                             ("#ffffff", "--critical"), ("#ffffff", "--severe"),
+                             ("#ffffff", "--serious-deep"),
+                             ("#1a1a19", "--warning"),
+                             ("--ink-2", "--cell-empty")):
+                self.assertGreaterEqual(
+                    contrast(tokens.get(fg, fg), tokens[fill]), 4.5, f"{fg} on {fill}")
+
+    def test_the_scale_runs_a_to_f_inclusive(self):
+        # A site emits `gradechip g-<letter>` from its own band table, so a
+        # letter with no fill here renders as white on nothing.
+        letters = set(re.findall(r"(?m)^\.g-([A-Za-z]+)\s*\{", CSS))
+        self.assertEqual(letters, set("ABCDEF") | {"none"})
 
 
 class TestJs(unittest.TestCase):
     def test_declares_exactly_the_documented_globals(self):
         self.assertEqual(js_globals(JS), JS_GLOBALS)
+
+    def test_the_published_set_is_the_whole_bundles(self):
+        """What consumers assert against. Parsing ui.js instead - which all three
+        did before the split - would drop bindDayCaption and let a site redeclare
+        it unnoticed."""
+        self.assertEqual(statusui.js_globals(), JS_GLOBALS)
+        self.assertIn("bindDayCaption", statusui.js_globals())
+
+    def test_the_caption_bundle_is_the_listener_and_nothing_else(self):
+        """A static page takes this instead of the whole file, so anything that
+        drifts into it is inlined on every place page of every site."""
+        self.assertEqual(js_globals(CAPTION), {"bindDayCaption"})
+        self.assertLess(len(CAPTION), 2000, "the caption bundle has grown a body")
+
+    def test_the_bundle_is_the_app_and_the_caption(self):
+        self.assertTrue(JS.endswith(CAPTION))
+        # a directive is only a directive while nothing precedes it
+        self.assertEqual(JS.splitlines()[3], '"use strict";')
 
     def test_nothing_runs_at_load(self):
         # Top-level statements are declarations only: the page decides what to
@@ -123,6 +155,12 @@ class TestJs(unittest.TestCase):
         self.assertNotIn("`", bare)
         self.assertNotIn("=>", bare)
         self.assertIsNone(re.search(r"\b(?:let|const)\b", bare))
+        # A class declaration as much as let and const: not ES5, and a binding
+        # neither js_globals() nor a vm context records, so a consumer
+        # redeclaring the name would take the whole inlined script down. Matched
+        # as a declaration, because `class` is also an HTML attribute the bar
+        # builders write into strings all day.
+        self.assertIsNone(re.search(r"\bclass\s+[A-Za-z_$]", bare))
 
     def test_month_names_mirror_python(self):
         mfull = re.search(r"var MFULL = \[(.*?)\];", JS, re.S).group(1)
@@ -145,6 +183,12 @@ class TestPython(unittest.TestCase):
         self.assertIn("function bindDayCaption", page)
         self.assertTrue(page.endswith("filled"))
         self.assertNotIn("<!--", page.replace("<!--UI", ""))
+
+    def test_a_page_can_take_the_caption_without_the_app(self):
+        page = statusui.assemble("<script><!--UI-JS-CAPTION--></script>")
+        self.assertIn("function bindDayCaption", page)
+        self.assertNotIn("function loadShard", page)
+        self.assertNotIn("<!--UI-JS", page)
 
     def test_hours_mirrors_the_js(self):
         self.assertEqual(statusui.hours(0.5), "30 min")
@@ -254,6 +298,49 @@ class TestPython(unittest.TestCase):
 
 
 @unittest.skipUnless(shutil.which("node"), "node not available")
+class TestPublishedGlobals(unittest.TestCase):
+    """Hold js_globals() to what a JavaScript engine actually declares.
+
+    Consumers get their redeclaration guard from that function, and it reads
+    the bundle with a regex - one name per declaration, column zero. Every
+    cheaper check of that assumption was itself a regex over JavaScript, and
+    the first one shipped here was fooled by the quotes inside esc()'s
+    /[&<>"']/g. So the assumption is checked against an engine instead: run the
+    bundle in a bare context and ask which names it left behind.
+
+    A context records `var` and `function` bindings, which is the same shape
+    js_globals() reads for; lexical declarations would be invisible to both,
+    and test_es5_syntax_only is what keeps them out of the file.
+    """
+
+    @staticmethod
+    def declared(js):
+        harness = f"""
+const vm = require("vm");
+const ctx = {{}};
+vm.createContext(ctx);
+vm.runInContext({json.dumps(js)}, ctx);
+console.log(JSON.stringify(Object.keys(ctx)));
+"""
+        run = subprocess.run(["node", "-e", harness], capture_output=True, text=True)
+        assert run.returncode == 0, run.stderr
+        return set(json.loads(run.stdout))
+
+    def test_the_regex_agrees_with_an_engine(self):
+        self.assertEqual(statusui.js_globals(), self.declared(statusui.ui_js()))
+
+    def test_a_second_name_on_one_line_is_caught_rather_than_dropped(self):
+        """The failure this exists for: js_globals() would publish `zqA` and
+        say nothing about `zqB`, leaving a consumer free to shadow it."""
+        doctored = statusui.ui_js() + "\nvar zqA = 1, zqB = 2;\n"
+        engine = self.declared(doctored)
+        self.assertIn("zqB", engine)
+        # the shipped parser, not a copy of its regex: a copy would agree with
+        # whatever this test was written against rather than with the function
+        self.assertEqual(statusui._declared(doctored), engine - {"zqB"})
+
+
+@unittest.skipUnless(shutil.which("node"), "node not available")
 class TestMirror(unittest.TestCase):
     """Run ui.js under node and hold each paired formatter to identical output.
 
@@ -359,6 +446,33 @@ console.log(JSON.stringify(searchHits("co", ["Cork"], {"Cork": ["Cork", "Cobh"]}
         self.assertEqual(run.returncode, 0, run.stderr)
         self.assertEqual(json.loads(run.stdout), [["Cork", "Cork"], ["Cobh", "Cork"]])
 
+    def test_a_pair_yields_a_triple_and_a_string_yields_a_pair(self):
+        # the mixed index is the real one: a site indexes names it has a page
+        # for beside names it does not
+        harness = JS + """
+console.log(JSON.stringify(searchHits("na", ["Kildare"],
+  {"Kildare": [["Naas", "naas"], "Nass Road"]})));
+"""
+        run = subprocess.run(["node", "-e", harness], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertEqual(
+            json.loads(run.stdout),
+            [["Naas", "Kildare", "naas"], ["Nass Road", "Kildare"]])
+
+    def test_a_targeted_name_that_is_also_a_county_keeps_its_own_row(self):
+        # fourteen Irish towns share their county's name and have a page of
+        # their own; the county still ranks first, so typing "sligo" lands on
+        # the county, but the town is one row down instead of nowhere
+        harness = JS + """
+console.log(JSON.stringify(searchHits("cor", ["Cork"],
+  {"Cork": [["Cork", "cork"], "Cobh", "Corkbeg"]})));
+"""
+        run = subprocess.run(["node", "-e", harness], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertEqual(
+            json.loads(run.stdout),
+            [["Cork", "Cork"], ["Cork", "Cork", "cork"], ["Corkbeg", "Cork"]])
+
     def test_hits_are_capped_at_forty(self):
         harness = JS + """
 var index = {"Cork": []};
@@ -371,10 +485,162 @@ console.log(JSON.stringify(searchHits("place", ["Cork"], index).length));
 
 
 @unittest.skipUnless(shutil.which("node"), "node not available")
+class TestBindSearch(unittest.TestCase):
+    """The dropdown, against a DOM shim carrying only what bindSearch touches.
+
+    What is worth guarding is the contract the sites lean on: a hit with a
+    target is a real link, and pick() returning true is how a site keeps one in
+    the app anyway.
+    """
+
+    SHIM = """
+function El(tag) {
+  this.tag = tag; this.dataset = {}; this.listeners = {};
+  this.innerHTML = ""; this.hidden = false; this.value = "";
+}
+El.prototype.addEventListener = function (t, fn) {
+  (this.listeners[t] = this.listeners[t] || []).push(fn);
+};
+El.prototype.contains = function (el) { return el && el.inBox !== false; };
+global.document = {
+  head: { appendChild: function () {} },
+  createElement: function (t) { return new El(t); },
+  activeElement: null,
+  addEventListener: function () {}
+};
+global.setTimeout = function () { return 0; };
+global.clearTimeout = function () {};
+"""
+
+    BIND = """
+var input = new El("input"), results = new El("div"), picked = null;
+document.activeElement = input;
+bindSearch({
+  input: input, results: results, counties: ["Kildare"], src: "",
+  loaded: function () { return {Kildare: [["Naas", "naas"], "Sallins Road"]}; },
+  href: function (c, t) {
+    return t ? "a/" + slug(c) + "/" + t + ".html" : "c/" + slug(c) + ".html";
+  },
+  pick: function (c, t) { picked = [c, t || null]; return !t; }
+});
+function click(c, t, ev) {
+  var el = new El("a"); el.dataset = {c: c, t: t}; var prevented = false;
+  var e = {target: {closest: function () { return el; }},
+           preventDefault: function () { prevented = true; }};
+  for (var k in (ev || {})) e[k] = ev[k];
+  if (ev && ev.outside) el.inBox = false;
+  results.listeners.click[0](e);
+  return prevented;
+}
+"""
+
+    def run_js(self, body):
+        harness = JS + self.SHIM + self.BIND + body
+        run = subprocess.run(["node", "-e", harness], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        return json.loads(run.stdout)
+
+    def test_a_hit_with_a_target_is_a_real_link(self):
+        html = self.run_js("""
+input.value = "na"; input.listeners.input[0]();
+console.log(JSON.stringify(results.innerHTML));
+""")
+        self.assertIn('<a href="a/kildare/naas.html"', html)
+        self.assertIn('data-t="naas"', html)
+
+    def test_a_town_named_for_its_county_links_beside_the_county(self):
+        html = self.run_js("""
+var i2 = new El("input"), r2 = new El("div");
+document.activeElement = i2;
+bindSearch({
+  input: i2, results: r2, counties: ["Kildare"], src: "",
+  loaded: function () { return {Kildare: [["Kildare", "kildare"], ["Naas", "naas"]]}; },
+  href: function (c, t) {
+    return t ? "a/" + slug(c) + "/" + t + ".html" : "c/" + slug(c) + ".html";
+  },
+  pick: function () {}
+});
+i2.value = "kil"; i2.listeners.input[0]();
+console.log(JSON.stringify(r2.innerHTML));
+""")
+        self.assertIn('href="c/kildare.html"', html)
+        self.assertIn('href="a/kildare/kildare.html"', html)
+        # the county stays first, so typing its name still lands on the county
+        county = html.index('href="c/kildare.html"')
+        self.assertLess(county, html.index('href="a/kildare/kildare.html"'))
+        # and without a note the town row is not a twin of the county's
+        self.assertIn('Kildare <span class="rc">Kildare</span>', html)
+
+    def test_no_href_option_leaves_the_hits_as_buttons(self):
+        html = self.run_js("""
+var i2 = new El("input"), r2 = new El("div");
+document.activeElement = i2;
+bindSearch({
+  input: i2, results: r2, counties: ["Kildare"], src: "",
+  loaded: function () { return {Kildare: ["Sallins Road"]}; },
+  pick: function () {}
+});
+i2.value = "sallins"; i2.listeners.input[0]();
+console.log(JSON.stringify(r2.innerHTML));
+""")
+        # lifts supplies no href, and must keep exactly the markup it had
+        self.assertIn("<button", html)
+        self.assertNotIn("<a href", html)
+
+    def test_a_modified_click_on_a_link_is_left_to_the_browser(self):
+        out = self.run_js("""
+picked = null;
+var prevented = click("Kildare", "naas", {metaKey: true});
+console.log(JSON.stringify([prevented, picked]));
+""")
+        # a new-tab click must not clear the box or route the current one
+        self.assertEqual(out, [False, None])
+
+    def test_a_modified_click_still_picks_where_there_is_no_link(self):
+        """lifts supplies no href, so its hits are buttons: there is nothing for
+        the browser to follow and swallowing the click would just break it."""
+        out = self.run_js("""
+var i2 = new El("input"), r2 = new El("div"), got = null;
+document.activeElement = i2;
+bindSearch({
+  input: i2, results: r2, counties: ["Kildare"], src: "",
+  loaded: function () { return {Kildare: ["Sallins Road"]}; },
+  pick: function (c) { got = c; }
+});
+var el = new El("button"); el.dataset = {c: "Kildare"};
+r2.listeners.click[0]({
+  target: {closest: function () { return el; }},
+  ctrlKey: true, preventDefault: function () {}
+});
+console.log(JSON.stringify(got));
+""")
+        self.assertEqual(out, "Kildare")
+
+    def test_a_click_resolving_outside_the_dropdown_is_ignored(self):
+        """closest() lost its `button` qualifier when hits became links, so an
+        unmatched click could otherwise climb out of the box entirely."""
+        out = self.run_js("""
+picked = null;
+click("Kildare", "naas", {outside: true});
+console.log(JSON.stringify(picked));
+""")
+        self.assertIsNone(out)
+
+    def test_pick_returning_true_suppresses_the_link(self):
+        out = self.run_js("""
+var countyHit = click("Kildare", undefined);
+var areaHit = click("Kildare", "naas");
+console.log(JSON.stringify([countyHit, areaHit, picked]));
+""")
+        # the county hit stays in the app; the area hit is allowed to navigate
+        self.assertEqual(out, [True, False, ["Kildare", "naas"]])
+
+
+@unittest.skipUnless(shutil.which("node"), "node not available")
 class TestFreshness(unittest.TestCase):
     """freshness() has no Python twin, so it is exercised under node directly."""
 
-    NOTE = "collection has stopped"
+    NOTE = "the last data build may have failed"
     STALE = '<span class="stale">Updated %s - ' + NOTE + "</span>"
     # (minutes before "now", staleHours, expected)
     CASES = [
@@ -386,7 +652,7 @@ class TestFreshness(unittest.TestCase):
         (60, 16, "Updated 1 hour ago"),
         (719, 16, "Updated 12 hours ago"),      # 11h59m rounds up, never down
         (959, 16, "Updated 16 hours ago"),      # the age rounds to 16h ...
-        (960, 16, STALE % "16 hours ago"),          # ... but only 16h exactly is overdue
+        (960, 16, STALE % "16 hours ago"),  # ... but only 16h exactly is overdue
         (1439, 24, "Updated 24 hours ago"),     # one unit all the way up
         (1440, 24, STALE % "1 day ago"),
         (4320, 24, STALE % "3 days ago"),
@@ -397,8 +663,7 @@ class TestFreshness(unittest.TestCase):
         harness = JS + f"""
 Date.now = function () {{ return Date.parse("2026-08-26T12:00:00Z"); }};
 console.log(JSON.stringify({cases}.map(function (c) {{
-  return freshness(new Date(Date.now() - c[0] * 60000).toISOString(), c[1],
-                   {json.dumps(self.NOTE)});
+  return freshness(new Date(Date.now() - c[0] * 60000).toISOString(), c[1]);
 }})));
 """
         run = subprocess.run(["node", "-e", harness], capture_output=True, text=True)

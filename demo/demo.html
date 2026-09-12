@@ -40,6 +40,7 @@
       <p class="basis" id="basis">Graded on a made-up aim. <span class="hoverhint">Hover a day in a bar for its detail.</span></p>
       <div id="list"></div>
       <div class="legend" id="legend"></div>
+      <div class="legend" id="gradekey"></div>
       <h3 class="natheading">Nationally this month</h3>
       <div class="tiles" id="tiles"></div>
     </section>
@@ -132,15 +133,24 @@ document.getElementById("legend").innerHTML =
       ["--good","--warning","--serious","--critical","--severe","--maint","","","--cell-empty"][l[0]] +
       ')"></i>' + esc(l[1]) + "</span>";
   }).join("");
+// every chip in the set, so a look at this page covers the whole ramp rather
+// than the three letters the fixture happens to use
+document.getElementById("gradekey").innerHTML =
+  ["A", "B", "C", "D", "E", "F", null].map(function (g) {
+    return "<span>" + gradeChip(g) + (g ? "grade " + g : "not graded") + "</span>";
+  }).join("");
 function tile(v, k) { return '<div class="tile"><div class="v">' + esc(v) + '</div><div class="k">' + esc(k) + "</div></div>"; }
 document.getElementById("tiles").innerHTML = [tile("93.1%", "back inside 4 hours"), tile(num(12345), "customers hit"),
   tile(fmtHours(3000), "total time off supply"), tile(fmtHours(72, fmtDays), "lifts-style days")].join("");
 document.getElementById("tallbar").innerHTML = dayCells(PLACES[1][2], "2026-08", describe, D.partial);
 document.getElementById("ptiles").innerHTML = [tile("84%", "back inside 4 hours"), tile(7, "faults"), tile(2, "planned"), tile(num(1234), "customers hit")].join("");
 // loaded() already answers, so src is never fetched — the demo stays one file
+// mixed on purpose: a pair is a place with a page of its own, a bare string one
+// that can only reach its county, and the demo has to show both rendering
 var DEMO_INDEX = {
-  Alpha: ["Alphaville", "Angleside"], Beta: ["Betatown", "Ballybeta"],
-  Gamma: ["Gammabridge"], Delta: ["Deltafield", "Dún Delta"]
+  Alpha: [["Alphaville", "alphaville"], "Angleside"],
+  Beta: [["Beta", "beta"], ["Betatown", "betatown"], "Ballybeta"],
+  Gamma: ["Gammabridge"], Delta: [["Dún Delta", "dun-delta"], "Deltafield"]
 };
 bindSearch({
   input: document.getElementById("q"),
@@ -148,7 +158,17 @@ bindSearch({
   counties: PLACES.map(function (p) { return p[0]; }),
   src: "",
   loaded: function () { return DEMO_INDEX; },
-  pick: function (c) { document.getElementById("q").placeholder = "Picked " + c; }
+  href: function (c, t) {
+    return t ? "a/" + slug(c) + "/" + t + ".html" : "c/" + slug(c) + ".html";
+  },
+  note: function (name, c, t) {
+    if (t) return name === c ? "town" : c;
+    return name === c ? "" : c + " · county";
+  },
+  pick: function (c, t) {
+    document.getElementById("q").placeholder = "Picked " + c + (t ? " / " + t : "");
+    return !t;
+  }
 });
 bindDayCaption();
 bindMonthReveal();
