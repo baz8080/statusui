@@ -41,10 +41,19 @@ To test an **unpushed** change against a site, run its build with the local chec
 Never hard-wrap prose in commit messages or PR descriptions: each paragraph is one line, and
 the renderer does the wrapping. Line breaks only between paragraphs or list items.
 
-Comments earn their place or they go. Say **why**, not what — never a paraphrase of the line
-below, a heading for an obviously-named block, or an explanation of a standard flag. One line
-where one will do; if the reasoning needs a paragraph it belongs in the commit message or the
-PR, not above the line. This covers CI YAML as much as Python and JS.
+**Comment sparingly.** Say **why**, not what - never a paraphrase of the line below, a heading
+for an obviously-named block, or an explanation of a standard flag. Do not restate a design
+decision at each site that follows it: state it once, in `README.md`, this file or the PR, and
+let the code stand.
+
+A comment earns its place only when it records something the reader cannot see: a consumer's
+constraint, the ES5 or 3.11 floor biting a line that would otherwise read as clumsy, a
+measurement, or a trap that would otherwise be refactored away - the `!important` on
+`[hidden]` is the kind of line that has to say why it is there.
+
+One line where one will do; if the reasoning needs a paragraph it belongs in the commit message
+or the PR, not above the line. No docstring or JSDoc block on a test whose name already says
+what it asserts. This covers CI YAML and CSS as much as Python and JS.
 
 ## Punctuation
 
