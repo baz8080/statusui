@@ -57,11 +57,12 @@ The three site repos are expected at `../uisce`, `../esb` and `../lifts` relativ
    pushes a `bump-statusui` branch and opens the PR. Merge the three PRs.
 4. If a site needed anything beyond the pin bump, that was a site change, not a UI change —
    and it probably belongs in that site's own block, not here.
-5. **Open**, until each site has done it once: every consumer's redeclaration guard still
-   reads `ui.js` off disk and splits its templates on the `<!--UI-JS-->` marker. Both have to
-   change — to `statusui.js_globals()`, and to accepting either marker — in that site's own
-   PR, alongside its pin bump. Neither the site's suite nor a green rollout can tell you it
-   is still outstanding: the guard passes by seeing fewer names.
+5. **Done, as of the freshness split**: all three guards ask `statusui.js_globals()` and
+   split on whichever marker their own template carries, so a piece moving between files no
+   longer weakens them. What each site still carries is a canary naming one global per file,
+   and `freshness` is not in any of those lists yet; a site adds it in its own PR. Nothing in
+   a site's suite or a green rollout says it is missing: the guard passes by seeing fewer
+   names.
 
 To try an unpushed change against a site first:
 `uv run --with-editable ../statusui <build-cmd>` from that site's directory.
