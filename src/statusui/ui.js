@@ -17,8 +17,6 @@ function esc(s) {
 function slug(s) { return s.toLowerCase().replace(/[^a-z0-9]+/g, "-"); }
 function monthLabel(ym) { return M3[+ym.slice(5, 7) - 1] + " " + ym.slice(0, 4); }
 function monthLabelLong(ym) { return MFULL[+ym.slice(5, 7) - 1] + " " + ym.slice(0, 4); }
-function num(n) { return n.toLocaleString("en-IE"); }
-function plural(n, word) { return num(n) + " " + word + (n === 1 ? "" : "s"); }
 function fmtDays(n) {
   if (n < 2) return "1 day";
   if (n < 60) return n + " days";
@@ -278,36 +276,6 @@ function bindSearch(opts) {
   document.addEventListener("click", function (e) {
     if (!e.target.closest(".search")) opts.results.hidden = true;
   });
-}
-
-/* --- how old the data is -------------------------------------------------- */
-// "Data to 26 Aug, 06:04 UTC" asks the reader to do timezone arithmetic to
-// answer the only question they had: is this current? An age answers it.
-//
-// A healthy overnight gap is a big number, and no wording makes a big number
-// read as fine, so the warning past `staleHours` - not the wording - carries
-// "something is wrong". Its absence is the reassurance, and it costs no words
-// on a normal render.
-//
-// The note names the likeliest cause and hedges, because the page cannot tell
-// a stalled build from a stalled collector: "may have failed" is a reading the
-// reader can act on without the page asserting something it does not know.
-//
-// Measured against the reader's clock, so a page served from cache says so.
-function freshness(iso, staleHours) {
-  var mins = Math.round((Date.now() - Date.parse(iso)) / 60000);
-  // a wrong clock or a stale cache must never render as "in 20 minutes"
-  if (mins < 2) return "Updated just now";
-  // one unit all the way up, as every relative-time library does; rounded, not
-  // floored, so the page never understates its own age
-  var age;
-  if (mins < 60) age = mins + " minutes ago";
-  else if (mins < 1440) age = plural(Math.round(mins / 60), "hour") + " ago";
-  else age = plural(Math.round(mins / 1440), "day") + " ago";
-  // on the exact minutes, not the rounded age, or the warning fires early
-  if (mins < staleHours * 60) return "Updated " + age;
-  return '<span class="stale">Updated ' + age +
-    " - the last data build may have failed</span>";
 }
 
 /* --- the build stamp ----------------------------------------------------- */

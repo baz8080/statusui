@@ -28,10 +28,11 @@ To test an **unpushed** change against a site, run its build with the local chec
   template literals; that one is a *browser* floor and moves independently of the Python one
   — and nothing runs at load; pages call what they need. Both guarded by `tests/test_ui.py`.
 - Every global the bundle declares is listed in `tests/test_ui.py::JS_GLOBALS`; adding one is
-  a deliberate act, because no site script may redeclare it. `caption.js` is part of that
-  bundle and part of that list: it holds `bindDayCaption` alone so a static page can inline
-  the listener without the app, and a test keeps it that size. Consumers get the set from
-  `statusui.js_globals()`; a site that parses `ui.js` itself sees only half of it.
+  a deliberate act, because no site script may redeclare it. `caption.js` and `freshness.js`
+  are part of that bundle and part of that list: one holds `bindDayCaption` alone, the other
+  `freshness` and the two helpers only it calls, so a static page can inline either without
+  the app, and a test keeps each that size. Consumers get the set from
+  `statusui.js_globals()`; a site that parses `ui.js` itself sees only part of it.
 - `[hidden] { display: none !important }` is the only `!important` display rule in
   `base.css`; that is the invariant that keeps the sites' view switching working.
 

@@ -8,8 +8,10 @@ template at the <!--UI-CSS--> and <!--UI-JS--> markers. Inlined, not linked,
 because every page is entered cold from a search result and a shared
 stylesheet would cost each of those readers a second request.
 
-A page whose only script is the day-cell caption takes <!--UI-JS-CAPTION-->
-instead, and gets that listener alone rather than 15 KB of app it never calls.
+A page that calls one or two of them takes a narrower marker instead, and gets
+that piece alone rather than 15 KB of app it never calls: <!--UI-JS-CAPTION-->
+for the day-cell listener, <!--UI-JS-FRESH--> for the data-age line. A page that
+wants both takes both markers.
 """
 
 from __future__ import annotations
@@ -25,7 +27,7 @@ from pathlib import Path
 
 HERE = Path(__file__).parent
 UI_CSS, UI_JS = "<!--UI-CSS-->", "<!--UI-JS-->"
-UI_JS_CAPTION = "<!--UI-JS-CAPTION-->"
+UI_JS_CAPTION, UI_JS_FRESH = "<!--UI-JS-CAPTION-->", "<!--UI-JS-FRESH-->"
 
 MONTH_NAMES = (
     "January", "February", "March", "April", "May", "June",
@@ -46,11 +48,11 @@ def base_css():
 
 
 def ui_js():
-    # caption.js last: ui.js opens with the "use strict" directive, and a
-    # directive is only a directive while nothing precedes it. The newline is
-    # the join, not a courtesy: without it a trailing line comment in ui.js
-    # would eat caption.js's first line and every page would die on it.
-    return (HERE / "ui.js").read_text(encoding="utf-8") + "\n" + caption_js()
+    # ui.js first: a "use strict" directive is only a directive while nothing
+    # precedes it. The newlines are load-bearing too, or a trailing line comment
+    # eats the next file's first line.
+    app = (HERE / "ui.js").read_text(encoding="utf-8")
+    return "\n".join((app, freshness_js(), caption_js()))
 
 
 def caption_js():
@@ -58,15 +60,20 @@ def caption_js():
     return (HERE / "caption.js").read_text(encoding="utf-8")
 
 
+def freshness_js():
+    """The data-age line alone, and the two helpers only it calls."""
+    return (HERE / "freshness.js").read_text(encoding="utf-8")
+
+
 def js_globals():
     """Every name the inlined script declares, for a consumer's redeclaration test.
 
     No argument, on purpose: a site that could pass its own source could pass
-    the half of the bundle it already reads, look migrated, and still miss what
-    caption.js declares. There is one right answer and this is it.
+    the part of the bundle it already reads, look migrated, and still miss what
+    the rest of it declares. There is one right answer and this is it.
 
-    Ask here rather than parsing ui.js: the bundle is two files, and a site
-    reading one of them would pass a script that shadows a name from the other.
+    Ask here rather than parsing ui.js: the bundle is three files, and a site
+    reading one of them would pass a script that shadows a name from another.
 
     One name per declaration is the rule this reads by, and a test holds the
     bundle to it: `var a = 1, b = 2;` would publish `a` and leave `b` guarding
@@ -87,6 +94,7 @@ def assemble(template, markers=None):
         template.replace(UI_CSS, base_css())
         .replace(UI_JS, ui_js())
         .replace(UI_JS_CAPTION, caption_js())
+        .replace(UI_JS_FRESH, freshness_js())
     )
     for name, text in (markers or {}).items():
         page = page.replace(f"<!--{name}-->", text)

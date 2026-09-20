@@ -9,6 +9,7 @@ src/statusui/__init__.py   shared build helpers, stdlib only, Python 3.11
 src/statusui/base.css      design tokens (light + dark) and every shared rule
 src/statusui/ui.js         shared browser helpers: plain ES5 globals, nothing runs at load
 src/statusui/caption.js    the day-cell caption listener alone, for pages that call only it
+src/statusui/freshness.js  the data-age line alone, for a page that wants it without the app
 rollout.sh                 bumps each consumer's pin, runs its tests, opens the three PRs
 demo/                      python3 demo/build.py → demo/out/index.html, fake data, every component
 tests/                     python3 -m unittest discover -s tests -t .
@@ -23,26 +24,29 @@ its `uv.lock`. Nothing is fetched at page-load time; the pages stay single-file 
 script follow the markers and override or extend.
 
 A consumer's redeclaration test must ask `statusui.js_globals()` for the names its own script
-may not use, rather than parsing `ui.js`: the bundle is two files now, and a site reading one
+may not use, rather than parsing `ui.js`: the bundle is three files now, and a site reading one
 of them would pass a script that shadows a name from the other - and would pass by seeing
 fewer names, so its own suite cannot catch it - which is why it is a step on the checklist
 below rather than something a green rollout can vouch for.
 
 That guard also splits each template on `<!--UI-JS-->` to find where the site's own script
-begins. `<!--UI-JS-CAPTION-->` does not contain that string, so a template converted to the
-caption marker needs the split taught both markers - or it raises `IndexError` on the first
-converted page, and drops that page from the check once it stops raising.
+begins. Neither narrow marker contains that string, so a template converted to one of them
+needs the split taught every marker - or it raises `IndexError` on the first converted page,
+and drops that page from the check once it stops raising.
 
-A template whose only script is the day-cell caption takes `<!--UI-JS-CAPTION-->` instead of
-`<!--UI-JS-->`: it gets that one listener, about 1 KB, rather than 15 KB of app it never
-calls. That is the static place pages - lifts' `s/<station>.html` today - where the bars are
-rendered by Python and the only interactive thing on the page is the caption strip. The full
-bundle still carries the listener, so an app page is unaffected and no site script may
-redeclare the name.
+A template that calls one or two of these takes a narrow marker instead of `<!--UI-JS-->` and
+gets that piece, about 1 to 2 KB, rather than 15 KB of app it never calls: `<!--UI-JS-CAPTION-->`
+for the day-cell listener, `<!--UI-JS-FRESH-->` for `freshness` and the two helpers it calls.
+A template that wants both takes both markers. That is the static pages - lifts'
+`s/<station>.html` and rail-delays' month pages - where the body is rendered by Python and the
+script is a listener and a line of text. The full bundle still carries both pieces, so an app
+page is unaffected and no site script may redeclare any of the names.
 
 The three site repos are expected at `../uisce`, `../esb` and `../lifts` relative to this one
-(the same sibling convention as the `../esb-data` and `../lifts-data` repos) — that is where
-`rollout.sh` finds them.
+(the same sibling convention as the `../esb-data` and `../lifts-data` repos), and that is where
+`rollout.sh` finds them. `rail-delays` is a fourth consumer, of the narrow markers only;
+`rollout.sh` does not know about it, so its pin moves by hand with
+`uv lock --upgrade-package statusui`.
 
 ## To ship a change
 
@@ -53,11 +57,12 @@ The three site repos are expected at `../uisce`, `../esb` and `../lifts` relativ
    pushes a `bump-statusui` branch and opens the PR. Merge the three PRs.
 4. If a site needed anything beyond the pin bump, that was a site change, not a UI change —
    and it probably belongs in that site's own block, not here.
-5. **Open**, until each site has done it once: every consumer's redeclaration guard still
-   reads `ui.js` off disk and splits its templates on the `<!--UI-JS-->` marker. Both have to
-   change — to `statusui.js_globals()`, and to accepting either marker — in that site's own
-   PR, alongside its pin bump. Neither the site's suite nor a green rollout can tell you it
-   is still outstanding: the guard passes by seeing fewer names.
+5. **Done, as of the freshness split**: all three guards ask `statusui.js_globals()` and
+   split on whichever marker their own template carries, so a piece moving between files no
+   longer weakens them. What each site still carries is a canary naming one global per file,
+   and `freshness` is not in any of those lists yet; a site adds it in its own PR. Nothing in
+   a site's suite or a green rollout says it is missing: the guard passes by seeing fewer
+   names.
 
 To try an unpushed change against a site first:
 `uv run --with-editable ../statusui <build-cmd>` from that site's directory.
