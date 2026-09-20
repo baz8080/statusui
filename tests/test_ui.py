@@ -20,6 +20,7 @@ CSS = (ROOT / "src" / "statusui" / "base.css").read_text(encoding="utf-8")
 # holds for the bundle, wherever a name lives in it.
 JS = statusui.ui_js()
 CAPTION = statusui.caption_js()
+FRESH = statusui.freshness_js()
 
 # Every global the bundle defines. A consumer's test checks its own script
 # against statusui.js_globals(), so adding a name here is a deliberate act.
@@ -128,7 +129,14 @@ class TestJs(unittest.TestCase):
         self.assertEqual(js_globals(CAPTION), {"bindDayCaption"})
         self.assertLess(len(CAPTION), 2000, "the caption bundle has grown a body")
 
-    def test_the_bundle_is_the_app_and_the_caption(self):
+    def test_the_freshness_bundle_is_the_age_and_what_it_calls(self):
+        """`num` and `plural` are here because freshness is their only caller;
+        a third name arriving means something took a free ride."""
+        self.assertEqual(js_globals(FRESH), {"num", "plural", "freshness"})
+        self.assertLess(len(FRESH), 2500, "the freshness bundle has grown a body")
+
+    def test_the_bundle_is_the_app_and_the_pieces(self):
+        self.assertIn(FRESH, JS)
         self.assertTrue(JS.endswith(CAPTION))
         # a directive is only a directive while nothing precedes it
         self.assertEqual(JS.splitlines()[3], '"use strict";')
@@ -189,6 +197,18 @@ class TestPython(unittest.TestCase):
         self.assertIn("function bindDayCaption", page)
         self.assertNotIn("function loadShard", page)
         self.assertNotIn("<!--UI-JS", page)
+
+    def test_a_page_can_take_freshness_without_the_app(self):
+        page = statusui.assemble("<script><!--UI-JS-FRESH--></script>")
+        self.assertIn("function freshness", page)
+        self.assertNotIn("function loadShard", page)
+        self.assertNotIn("<!--UI-JS", page)
+
+    def test_a_page_can_take_both_pieces(self):
+        page = statusui.assemble("<script><!--UI-JS-FRESH--><!--UI-JS-CAPTION--></script>")
+        self.assertIn("function freshness", page)
+        self.assertIn("function bindDayCaption", page)
+        self.assertNotIn("function loadShard", page)
 
     def test_hours_mirrors_the_js(self):
         self.assertEqual(statusui.hours(0.5), "30 min")
@@ -658,9 +678,9 @@ class TestFreshness(unittest.TestCase):
         (4320, 24, STALE % "3 days ago"),
     ]
 
-    def test_cases(self):
+    def ages(self, source):
         cases = json.dumps([[m, h] for m, h, _ in self.CASES])
-        harness = JS + f"""
+        harness = source + f"""
 Date.now = function () {{ return Date.parse("2026-08-26T12:00:00Z"); }};
 console.log(JSON.stringify({cases}.map(function (c) {{
   return freshness(new Date(Date.now() - c[0] * 60000).toISOString(), c[1]);
@@ -668,7 +688,15 @@ console.log(JSON.stringify({cases}.map(function (c) {{
 """
         run = subprocess.run(["node", "-e", harness], capture_output=True, text=True)
         self.assertEqual(run.returncode, 0, run.stderr)
-        self.assertEqual(json.loads(run.stdout), [want for _, _, want in self.CASES])
+        return json.loads(run.stdout)
+
+    def test_cases(self):
+        self.assertEqual(self.ages(JS), [want for _, _, want in self.CASES])
+
+    def test_the_piece_alone_answers_the_same(self):
+        """A page can inline this file alone, so it has to carry every name it
+        reaches for. Run over the bundle, a miss would be invisible."""
+        self.assertEqual(self.ages(FRESH), [want for _, _, want in self.CASES])
 
 
 if __name__ == "__main__":
