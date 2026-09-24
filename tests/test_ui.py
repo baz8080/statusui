@@ -1,6 +1,7 @@
 """Guards on the shared files. Run with `python3 -m unittest discover -s tests -t .`."""
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -21,6 +22,10 @@ CSS = (ROOT / "src" / "statusui" / "base.css").read_text(encoding="utf-8")
 JS = statusui.ui_js()
 CAPTION = statusui.caption_js()
 FRESH = statusui.freshness_js()
+
+# CI must run the engine checks, so there a missing node fails rather than skips
+needs_node = unittest.skipUnless(shutil.which("node") or os.environ.get("CI"), "node not available")
+
 
 # Every global the bundle defines. A consumer's test checks its own script
 # against statusui.js_globals(), so adding a name here is a deliberate act.
@@ -317,7 +322,7 @@ class TestPython(unittest.TestCase):
         self.assertNotIn("shards", text)
 
 
-@unittest.skipUnless(shutil.which("node"), "node not available")
+@needs_node
 class TestPublishedGlobals(unittest.TestCase):
     """Hold js_globals() to what a JavaScript engine actually declares.
 
@@ -360,7 +365,7 @@ console.log(JSON.stringify(Object.keys(ctx)));
         self.assertEqual(statusui._declared(doctored), engine - {"zqB"})
 
 
-@unittest.skipUnless(shutil.which("node"), "node not available")
+@needs_node
 class TestMirror(unittest.TestCase):
     """Run ui.js under node and hold each paired formatter to identical output.
 
@@ -423,7 +428,7 @@ console.log(JSON.stringify({{
         self.assertEqual(self.js["cells"], py)
 
 
-@unittest.skipUnless(shutil.which("node"), "node not available")
+@needs_node
 class TestSearchHits(unittest.TestCase):
     """searchHits is the pure half of the search box; bindSearch is DOM-only."""
 
@@ -504,7 +509,7 @@ console.log(JSON.stringify(searchHits("place", ["Cork"], index).length));
         self.assertEqual(json.loads(run.stdout), 40)
 
 
-@unittest.skipUnless(shutil.which("node"), "node not available")
+@needs_node
 class TestBindSearch(unittest.TestCase):
     """The dropdown, against a DOM shim carrying only what bindSearch touches.
 
@@ -656,7 +661,7 @@ console.log(JSON.stringify([countyHit, areaHit, picked]));
         self.assertEqual(out, [True, False, ["Kildare", "naas"]])
 
 
-@unittest.skipUnless(shutil.which("node"), "node not available")
+@needs_node
 class TestFreshness(unittest.TestCase):
     """freshness() has no Python twin, so it is exercised under node directly."""
 
