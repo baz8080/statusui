@@ -53,8 +53,8 @@ The three site repos are expected at `../uisce`, `../esb` and `../lifts` relativ
 1. Edit `src/statusui/*` here. `python3 -m unittest discover -s tests -t .`;
    `python3 demo/build.py` and look at it.
 2. Commit and push here.
-3. `./rollout.sh` — for each site it bumps `uv.lock` to this commit, runs that site's tests,
-   pushes a `bump-statusui` branch and opens the PR. Merge the three PRs.
+3. `./rollout.sh` - for each site it bumps `uv.lock` to this commit, runs that site's tests,
+   pushes a `bump-statusui` branch and opens or updates the PR. Merge the three PRs.
 4. If a site needed anything beyond the pin bump, that was a site change, not a UI change —
    and it probably belongs in that site's own block, not here.
 5. **Done, as of the freshness split**: all three guards ask `statusui.js_globals()` and
