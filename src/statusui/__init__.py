@@ -160,7 +160,7 @@ def days(n):
         return "1 day"
     if n < 60:
         return f"{n} days"
-    return f"{n / 30.44:.1f} months"
+    return f"{tenth(n / 30.44)} months"
 
 
 def hours(h, days_fmt=None):

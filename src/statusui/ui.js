@@ -31,6 +31,7 @@ function fmtHours(h, days) {
 }
 // "2026-08-16T20:21" -> "16 Aug, 20:21", or "16 Aug 2026, 20:21" with the year
 function when(ts, withYear) {
+  if (!ts) return "";
   return +ts.slice(8, 10) + " " + M3[+ts.slice(5, 7) - 1] +
     (withYear ? " " + ts.slice(0, 4) : "") + ", " + ts.slice(11, 16);
 }

@@ -375,7 +375,8 @@ class TestMirror(unittest.TestCase):
 
     HOURS = [0.02, 0.5, 0.99, 1, 1.15, 1.25, 1.45, 2.25, 2.5, 8.95, 9.94, 9.96, 10,
              12.5, 23.5, 36, 47.9, 48, 60, 72, 24 * 90, 24 * 365]
-    DAYS = [0, 1, 2, 59, 60, 61, 365]
+    # 98.93 / 30.44 is exactly 3.25, the tie toFixed rounds up and "%.1f" rounds to even
+    DAYS = [0, 1, 2, 59, 60, 61, 365, 98.93]
     WHEN = ["2026-08-16T20:21", "2026-01-06T09:05", "2025-12-31T23:59"]
 
     @classmethod
@@ -389,6 +390,7 @@ console.log(JSON.stringify({{
   days: daysIn.map(fmtDays),
   when: whenIn.map(function (t) {{ return when(t); }}),
   whenYear: whenIn.map(function (t) {{ return when(t, true); }}),
+  whenBlank: ["", null].map(function (t) {{ return when(t); }}),
   fmtDay: whenIn.map(fmtDay),
   fmtDate: whenIn.map(function (t) {{ return fmtDate(t, "2026-08-25"); }}),
   months: whenIn.map(function (t) {{ return monthLabelLong(t.slice(0, 7)); }}),
@@ -412,6 +414,7 @@ console.log(JSON.stringify({{
     def test_when(self):
         self.assertEqual(self.js["when"], [statusui.when(t) for t in self.WHEN])
         self.assertEqual(self.js["whenYear"], [statusui.when(t, year=True) for t in self.WHEN])
+        self.assertEqual(self.js["whenBlank"], [statusui.when(""), statusui.when(None)])
 
     def test_fmt_day(self):
         self.assertEqual(self.js["fmtDay"], [statusui.fmt_day(t) for t in self.WHEN])
