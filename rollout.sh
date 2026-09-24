@@ -13,7 +13,10 @@ git -C "$root" fetch -q origin
 
 rev="$(git -C "$root" rev-parse --short HEAD)"
 full="$(git -C "$root" rev-parse HEAD)"
-trap '[ -z "${bumped:-}" ] || git -C "$bumped" checkout -q -- uv.lock' EXIT
+trap '[ -z "${bumped:-}" ] || git -C "$bumped" checkout -q HEAD -- uv.lock' EXIT
+# dash skips the EXIT trap on a signal, and Ctrl-C mid-test is the likely one
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 for repo in uisce esb lifts; do
   dir="$root/../$repo"
@@ -30,11 +33,17 @@ for repo in uisce esb lifts; do
     continue
   fi
   n="$(cd "$dir" && gh pr list --head bump-statusui --state open --json number -q '.[0].number')"
-  if [ -n "$n" ] && git -C "$dir" fetch -q origin bump-statusui &&
-     git -C "$dir" show FETCH_HEAD:uv.lock | grep -q "statusui#$full"; then
-    git -C "$dir" checkout -q -- uv.lock
-    echo "   bump to statusui $rev already open"
-    continue
+  if [ -n "$n" ]; then
+    git -C "$dir" fetch -q origin bump-statusui
+    open="$(git -C "$dir" rev-parse FETCH_HEAD)"
+    [ "$(git -C "$dir" rev-list --count "main..$open")" = 1 ] ||
+      { echo "$repo's bump-statusui has commits besides the pin; sort it out by hand" >&2; exit 1; }
+    if [ "$(git -C "$dir" rev-parse "$open^")" = "$(git -C "$dir" rev-parse main)" ] &&
+       git -C "$dir" show "$open:uv.lock" | grep -q "statusui#$full"; then
+      git -C "$dir" checkout -q -- uv.lock
+      echo "   bump to statusui $rev already open"
+      continue
+    fi
   fi
 
   case "$repo" in
@@ -47,11 +56,12 @@ for repo in uisce esb lifts; do
   git -C "$dir" checkout -q -B bump-statusui main
   git -C "$dir" add uv.lock
   git -C "$dir" commit -q -m "Bump statusui to $rev" -m "$body"
-  # the branch is this script's alone, rebuilt from main on every run
-  git -C "$dir" push -q --force -u origin bump-statusui
+  # the branch is this script's, rebuilt from main on every run
   if [ -n "$n" ]; then
+    git -C "$dir" push -q --force-with-lease="bump-statusui:$open" -u origin bump-statusui
     (cd "$dir" && gh pr edit "$n" --title "Bump statusui to $rev" --body "$body")
   else
+    git -C "$dir" push -q --force -u origin bump-statusui
     (cd "$dir" && gh pr create --title "Bump statusui to $rev" --body "$body")
   fi
   git -C "$dir" checkout -q main

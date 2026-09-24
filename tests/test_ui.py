@@ -23,8 +23,8 @@ JS = statusui.ui_js()
 CAPTION = statusui.caption_js()
 FRESH = statusui.freshness_js()
 
-# CI must run the engine checks, so there a missing node fails rather than skips
-needs_node = unittest.skipUnless(shutil.which("node") or os.environ.get("CI"), "node not available")
+needs_node = unittest.skipUnless(
+    shutil.which("node") or os.environ.get("CI") == "true", "node not available")
 
 
 # Every global the bundle defines. A consumer's test checks its own script
@@ -375,7 +375,7 @@ class TestMirror(unittest.TestCase):
 
     HOURS = [0.02, 0.5, 0.99, 1, 1.15, 1.25, 1.45, 2.25, 2.5, 8.95, 9.94, 9.96, 10,
              12.5, 23.5, 36, 47.9, 48, 60, 72, 24 * 90, 24 * 365]
-    # 98.93 / 30.44 is exactly 3.25, the tie toFixed rounds up and "%.1f" rounds to even
+    # 98.93 / 30.44 is exactly 3.25, a tie
     DAYS = [0, 1, 2, 59, 60, 61, 365, 98.93]
     WHEN = ["2026-08-16T20:21", "2026-01-06T09:05", "2025-12-31T23:59"]
 
