@@ -24,9 +24,11 @@ To test an **unpushed** change against a site, run its build with the local chec
 ## Constraints
 
 - `src/statusui/__init__.py`: standard library only, and never a floor above the
-  consumers' — 3.11, which is what esb's Raspberry Pi runs; ruff here targets it. `src/statusui/ui.js`: ES5 — `var`, `function`, no arrows or
-  template literals; that one is a *browser* floor and moves independently of the Python one
-  — and nothing runs at load; pages call what they need. Both guarded by `tests/test_ui.py`.
+  consumers' - 3.11, which is what esb's Raspberry Pi runs; ruff here targets it.
+  `src/statusui/ui.js`: ES5 *syntax* (`var`, `function`, no arrows or template literals),
+  because the redeclaration guard below only sees `var` and `function` names. It is not a
+  browser floor: built-ins every current browser has, like `padStart`, are fine. Nothing runs
+  at load; pages call what they need. Both guarded by `tests/test_ui.py`.
 - Every global the bundle declares is listed in `tests/test_ui.py::JS_GLOBALS`; adding one is
   a deliberate act, because no site script may redeclare it. `caption.js` and `freshness.js`
   are part of that bundle and part of that list: one holds `bindDayCaption` alone, the other

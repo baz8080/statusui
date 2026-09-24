@@ -1,6 +1,7 @@
 """Guards on the shared files. Run with `python3 -m unittest discover -s tests -t .`."""
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -21,6 +22,10 @@ CSS = (ROOT / "src" / "statusui" / "base.css").read_text(encoding="utf-8")
 JS = statusui.ui_js()
 CAPTION = statusui.caption_js()
 FRESH = statusui.freshness_js()
+
+needs_node = unittest.skipUnless(
+    shutil.which("node") or os.environ.get("CI") == "true", "node not available")
+
 
 # Every global the bundle defines. A consumer's test checks its own script
 # against statusui.js_globals(), so adding a name here is a deliberate act.
@@ -317,7 +322,7 @@ class TestPython(unittest.TestCase):
         self.assertNotIn("shards", text)
 
 
-@unittest.skipUnless(shutil.which("node"), "node not available")
+@needs_node
 class TestPublishedGlobals(unittest.TestCase):
     """Hold js_globals() to what a JavaScript engine actually declares.
 
@@ -360,7 +365,7 @@ console.log(JSON.stringify(Object.keys(ctx)));
         self.assertEqual(statusui._declared(doctored), engine - {"zqB"})
 
 
-@unittest.skipUnless(shutil.which("node"), "node not available")
+@needs_node
 class TestMirror(unittest.TestCase):
     """Run ui.js under node and hold each paired formatter to identical output.
 
@@ -370,7 +375,8 @@ class TestMirror(unittest.TestCase):
 
     HOURS = [0.02, 0.5, 0.99, 1, 1.15, 1.25, 1.45, 2.25, 2.5, 8.95, 9.94, 9.96, 10,
              12.5, 23.5, 36, 47.9, 48, 60, 72, 24 * 90, 24 * 365]
-    DAYS = [0, 1, 2, 59, 60, 61, 365]
+    # 98.93 / 30.44 is exactly 3.25, a tie
+    DAYS = [0, 1, 2, 59, 60, 61, 365, 98.93]
     WHEN = ["2026-08-16T20:21", "2026-01-06T09:05", "2025-12-31T23:59"]
 
     @classmethod
@@ -384,6 +390,7 @@ console.log(JSON.stringify({{
   days: daysIn.map(fmtDays),
   when: whenIn.map(function (t) {{ return when(t); }}),
   whenYear: whenIn.map(function (t) {{ return when(t, true); }}),
+  whenBlank: ["", null].map(function (t) {{ return when(t); }}),
   fmtDay: whenIn.map(fmtDay),
   fmtDate: whenIn.map(function (t) {{ return fmtDate(t, "2026-08-25"); }}),
   months: whenIn.map(function (t) {{ return monthLabelLong(t.slice(0, 7)); }}),
@@ -407,6 +414,7 @@ console.log(JSON.stringify({{
     def test_when(self):
         self.assertEqual(self.js["when"], [statusui.when(t) for t in self.WHEN])
         self.assertEqual(self.js["whenYear"], [statusui.when(t, year=True) for t in self.WHEN])
+        self.assertEqual(self.js["whenBlank"], [statusui.when(""), statusui.when(None)])
 
     def test_fmt_day(self):
         self.assertEqual(self.js["fmtDay"], [statusui.fmt_day(t) for t in self.WHEN])
@@ -423,7 +431,7 @@ console.log(JSON.stringify({{
         self.assertEqual(self.js["cells"], py)
 
 
-@unittest.skipUnless(shutil.which("node"), "node not available")
+@needs_node
 class TestSearchHits(unittest.TestCase):
     """searchHits is the pure half of the search box; bindSearch is DOM-only."""
 
@@ -504,7 +512,7 @@ console.log(JSON.stringify(searchHits("place", ["Cork"], index).length));
         self.assertEqual(json.loads(run.stdout), 40)
 
 
-@unittest.skipUnless(shutil.which("node"), "node not available")
+@needs_node
 class TestBindSearch(unittest.TestCase):
     """The dropdown, against a DOM shim carrying only what bindSearch touches.
 
@@ -656,7 +664,7 @@ console.log(JSON.stringify([countyHit, areaHit, picked]));
         self.assertEqual(out, [True, False, ["Kildare", "naas"]])
 
 
-@unittest.skipUnless(shutil.which("node"), "node not available")
+@needs_node
 class TestFreshness(unittest.TestCase):
     """freshness() has no Python twin, so it is exercised under node directly."""
 

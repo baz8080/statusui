@@ -1,7 +1,7 @@
 """Build helpers shared by the status sites.
 
 Installed by each site as a uv git dependency pinned in its uv.lock; rollout.sh
-moves the pins. Standard library only, Python 3.9 syntax: the consumers' floor.
+moves the pins. Standard library only, Python 3.11: the consumers' floor.
 
 The one that matters is `assemble`: it inlines base.css and ui.js into a page
 template at the <!--UI-CSS--> and <!--UI-JS--> markers. Inlined, not linked,
@@ -160,7 +160,7 @@ def days(n):
         return "1 day"
     if n < 60:
         return f"{n} days"
-    return f"{n / 30.44:.1f} months"
+    return f"{tenth(n / 30.44)} months"
 
 
 def hours(h, days_fmt=None):
