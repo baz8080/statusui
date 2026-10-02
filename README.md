@@ -42,6 +42,18 @@ A template that wants both takes both markers. That is the static pages - lifts'
 script is a listener and a line of text. The full bundle still carries both pieces, so an app
 page is unaffected and no site script may redeclare any of the names.
 
+An app page that draws its overview from data puts `<!--UI-WAIT-->` in its `<head>` and
+`data-wait` on whatever its first render fills or pushes down (the overview, the footer). Those
+stay out of the first paint until the page calls `pending(false)`, or until the `load` event or
+an 8-second timer if its script never gets that far, so the browser never paints an empty
+skeleton for the render to shove down the screen. A page can call `pending(true)` again while it
+waits on a shard. Static pages need none of this.
+
+`assemble()` strips the comments out of every inline `<style>` and classic `<script>` on the way
+out - a third of an app page's gzipped HTML - with a tokenizer that leaves strings, template
+literals and regex literals alone; the mirror tests run again over the stripped bundle. HTML
+comments are left, because a site may fill its own markers after `assemble()` returns.
+
 The consumers are expected at `../uisce`, `../esb`, `../lifts` and `../rail-delays` relative
 to this one (the same sibling convention as the `../esb-data` and `../lifts-data` repos), and
 that is where `rollout.sh` finds them. `rail-delays` is the fourth, of the narrow markers only.
@@ -73,12 +85,12 @@ row (`.place > .row`, `.cname`, `.stats`, `.chev`, focus ring); `.gradechip` and
 `.daycap` and the hover/touch rules; the drill-down (`.back`, `.chead`, `.chead + .sub`, `.card`,
 `.empty`, `.case`, `.tl`, `.nav`); footer and its disclosures; the 640 px reflow. In JS: `esc`, `slug`,
 `monthLabel(Long)`, `num`, `plural`, `fmtHours`, `fmtDays`, `when`, `monthTabs`, `dayCells`,
-`bindDayCaption`, `cacheBust`, `loadShard`, `freshness`, `stampLine`, and the place search —
+`bindDayCaption`, `cacheBust`, `loadShard`, `pending`, `freshness`, `stampLine`, and the place search:
 `searchHits` ranks, `bindSearch` runs the box (lazy index fetch, dropdown, pick); a site
 supplies the index file, its counties, the pick handler, and optionally a per-hit note, a
 per-hit target in the index and an `href` that turns the hits into real links. A targeted entry
 that shares its county's name keeps its own row under the county's, annotated with the county
-by default; a site will want its own word for it. In Python: `assemble`, `slug`,
+by default; a site will want its own word for it. In Python: `assemble` (and the `strip_comments` it ends with), `slug`,
 `month_label`, `dumps`, `stamp`, `when`, `hours`, `days`, `day_cells`, `sitemap`, `robots`,
 `size_report`.
 

@@ -39,6 +39,10 @@ To test an **unpushed** change against a site, run its build with the local chec
   `base.css`; that is the invariant that keeps the sites' view switching working.
   It leaves out `hidden="until-found"`, which the browser hides with
   `content-visibility` so that find-in-page can still reveal it.
+- No page ships a CSS or JS comment: `assemble()` strips them, so nothing a page needs may
+  live in one. And no shared file may name a marker, even in a comment - each is inlined
+  before the markers are filled, so `<!--UI-WAIT-->` written in `ui.js` would land a
+  `</script>` in the middle of it.
 
 ## Writing conventions
 
