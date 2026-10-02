@@ -1,10 +1,10 @@
 # statusui
 
-The design layer shared by three status sites — uisce, esb and lifts, checked out beside this
-repo at `../uisce`, `../esb`, `../lifts`. Each site installs this repo as a **uv git
-dependency pinned in its `uv.lock`**, and inlines `base.css` and `ui.js` into its pages at
-build via `statusui.assemble()`. A change here reaches a site only when its pin moves;
-`./rollout.sh` moves all three pins in one command.
+The design layer shared by three status sites, uisce, esb and lifts, and by rail-delays,
+checked out beside this repo at `../uisce`, `../esb`, `../lifts`, `../rail-delays`. Each site
+installs this repo as a **uv git dependency pinned in its `uv.lock`**, and inlines `base.css`
+and `ui.js` into its pages at build via `statusui.assemble()`. A change here reaches a site
+only when its pin moves; `./rollout.sh` moves all four pins in one command.
 
 ## To ship a change
 
@@ -14,7 +14,7 @@ build via `statusui.assemble()`. A change here reaches a site only when its pin 
    but only looking at the page catches a change that renders wrong rather than throws.
 2. Commit and push here.
 3. `./rollout.sh` — bumps each site's `uv.lock`, runs its tests, pushes a `bump-statusui`
-   branch and opens the PR. Merge the three PRs.
+   branch and opens the PR. Merge the four PRs.
 4. If a site needed anything beyond the pin bump, that was a site change and belongs in that
    site's own `site.css` or inline block, not here.
 

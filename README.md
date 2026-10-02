@@ -10,7 +10,7 @@ src/statusui/base.css      design tokens (light + dark) and every shared rule
 src/statusui/ui.js         shared browser helpers: plain ES5 globals, nothing runs at load
 src/statusui/caption.js    the day-cell caption listener alone, for pages that call only it
 src/statusui/freshness.js  the data-age line alone, for a page that wants it without the app
-rollout.sh                 bumps each consumer's pin, runs its tests, opens the three PRs
+rollout.sh                 bumps each consumer's pin, runs its tests, opens the four PRs
 demo/                      python3 demo/build.py → demo/out/index.html, fake data, every component
 tests/                     python3 -m unittest discover -s tests -t .
 ```
@@ -42,11 +42,9 @@ A template that wants both takes both markers. That is the static pages - lifts'
 script is a listener and a line of text. The full bundle still carries both pieces, so an app
 page is unaffected and no site script may redeclare any of the names.
 
-The three site repos are expected at `../uisce`, `../esb` and `../lifts` relative to this one
-(the same sibling convention as the `../esb-data` and `../lifts-data` repos), and that is where
-`rollout.sh` finds them. `rail-delays` is a fourth consumer, of the narrow markers only;
-`rollout.sh` does not know about it, so its pin moves by hand with
-`uv lock --upgrade-package statusui`.
+The consumers are expected at `../uisce`, `../esb`, `../lifts` and `../rail-delays` relative
+to this one (the same sibling convention as the `../esb-data` and `../lifts-data` repos), and
+that is where `rollout.sh` finds them. `rail-delays` is the fourth, of the narrow markers only.
 
 ## To ship a change
 
@@ -54,7 +52,7 @@ The three site repos are expected at `../uisce`, `../esb` and `../lifts` relativ
    `python3 demo/build.py` and look at it.
 2. Commit and push here.
 3. `./rollout.sh` - for each site it bumps `uv.lock` to this commit, runs that site's tests,
-   pushes a `bump-statusui` branch and opens or updates the PR. Merge the three PRs.
+   pushes a `bump-statusui` branch and opens or updates the PR. Merge the four PRs.
 4. If a site needed anything beyond the pin bump, that was a site change, not a UI change —
    and it probably belongs in that site's own block, not here.
 5. **Done, as of the freshness split**: all three guards ask `statusui.js_globals()` and

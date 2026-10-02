@@ -18,7 +18,7 @@ trap '[ -z "${bumped:-}" ] || git -C "$bumped" checkout -q HEAD -- uv.lock' EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-for repo in uisce esb lifts; do
+for repo in uisce esb lifts rail-delays; do
   dir="$root/../$repo"
   echo "== $repo"
   [ -z "$(git -C "$dir" status --porcelain)" ] || { echo "$repo is dirty; commit or stash there first" >&2; exit 1; }
