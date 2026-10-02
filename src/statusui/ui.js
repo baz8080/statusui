@@ -125,6 +125,12 @@ function loadShard(state, key, src, isLoaded, done) {
   document.head.appendChild(s);
 }
 
+// Holds a page's [data-wait] elements back while it waits on data, or lets them
+// go. The UI-WAIT head script set it before anything painted.
+function pending(on) {
+  document.documentElement.classList.toggle("wait", !!on);
+}
+
 /* --- the place search ---------------------------------------------------- */
 // Ranked hits for a place query against {county: [entry]}, where an entry is a
 // name or a [name, target] pair: counties whose own name starts with q come

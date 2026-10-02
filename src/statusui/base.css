@@ -34,10 +34,20 @@
 }
 
 * { box-sizing: border-box; margin: 0; }
+/* A classic scrollbar (Windows, most desktop Linux) arrives once the render makes
+   the page scroll, and took half its width off the centred .wrap: CLS 0.63 on
+   uisce's index at 1366px. Overlay scrollbars take no gutter, so phones are unchanged. */
+html { scrollbar-gutter: stable; }
 /* !important keeps `hidden` meaning hidden whatever display a layout rule sets:
    the UA's own [hidden] rule is a plain `display: none` that any author
    `display` outranks. */
 [hidden] { display: none !important; }
+/* Kept out of the first paint until the page's script has drawn what goes above
+   them: the UI-WAIT head script sets .wait, pending(false) clears it. Painted
+   empty, they were pushed down the screen by the render (uisce's CLS 0.45 in
+   the field). #_ matches nothing; it lends the selector an id's weight, so a
+   site's own #id display rule cannot un-hide one. */
+html.wait :is([data-wait], #_) { display: none; }
 body {
   background: var(--page); color: var(--ink);
   font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;

@@ -11,11 +11,16 @@ stylesheet would cost each of those readers a second request.
 A page that calls one or two of them takes a narrower marker instead, and gets
 that piece alone rather than 15 KB of app it never calls: <!--UI-JS-CAPTION-->
 for the day-cell listener, <!--UI-JS-FRESH--> for the data-age line. A page that
-wants both takes both markers.
+wants both takes both markers. <!--UI-WAIT--> in <head> holds back a page's
+[data-wait] elements until its script has drawn what goes above them.
+
+Every page leaves `assemble` with the comments stripped from its inline <style>
+and <script> blocks: on an app page they were a third of the gzipped HTML.
 """
 
 from __future__ import annotations
 
+import functools
 import html
 import json
 import math
@@ -28,6 +33,16 @@ from pathlib import Path
 HERE = Path(__file__).parent
 UI_CSS, UI_JS = "<!--UI-CSS-->", "<!--UI-JS-->"
 UI_JS_CAPTION, UI_JS_FRESH = "<!--UI-JS-CAPTION-->", "<!--UI-JS-FRESH-->"
+UI_WAIT = "<!--UI-WAIT-->"
+
+# Self-contained, because it runs in <head> before ui.js exists. The load event
+# is the fallback for a script that throws before calling pending(false), and the
+# timer for a data file that stalls rather than fails.
+WAIT_HEAD = (
+    "<script>(function(){var h=document.documentElement;"
+    'function go(){h.classList.remove("wait")}'
+    'h.classList.add("wait");addEventListener("load",go);setTimeout(go,8000)})()</script>'
+)
 
 MONTH_NAMES = (
     "January", "February", "March", "April", "May", "June",
@@ -89,16 +104,151 @@ def _declared(js):
 
 
 def assemble(template, markers=None):
-    """Fill a page template: the shared CSS and JS, then each <!--NAME--> in `markers`."""
+    """Fill a page template: the shared CSS and JS, then each <!--NAME--> in `markers`.
+
+    Comments come out of the inline CSS and JS on the way, so nothing a page needs
+    may live in one. HTML comments stay: a site may fill its own markers later.
+    """
     page = (
-        template.replace(UI_CSS, base_css())
+        template.replace(UI_WAIT, WAIT_HEAD)
+        .replace(UI_CSS, base_css())
         .replace(UI_JS, ui_js())
         .replace(UI_JS_CAPTION, caption_js())
         .replace(UI_JS_FRESH, freshness_js())
     )
     for name, text in (markers or {}).items():
         page = page.replace(f"<!--{name}-->", text)
-    return page
+    return strip_comments(page)
+
+
+_JS_TOKEN = re.compile(r"""
+  (?P<ws>[ \t\r\n]+)
+| (?P<line>//[^\n]*)
+| (?P<block>/\*.*?\*/)
+| (?P<str>'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*")
+| (?P<tick>`)
+| (?P<word>[A-Za-z_$][\w$]*|\d[\w.]*)
+| (?P<slash>/)
+| (?P<open>\{)
+| (?P<close>\})
+| (?P<punct>.)
+""", re.X | re.S)
+_TEMPLATE_TEXT = re.compile(r"(?:[^`\\$]|\\.|\$(?!\{))*", re.S)
+_REGEX = re.compile(r"/(?:[^/\\\[\n]|\\.|\[(?:[^\]\\\n]|\\.)*\])+/[A-Za-z]*")
+# A / after one of these opens a regex literal; after anything else it divides.
+_BEFORE_REGEX = {
+    "return", "typeof", "instanceof", "in", "of", "new", "delete", "void", "throw",
+    "case", "do", "else", "yield", "await", *"(,=:[!&|?{};+-*%<>~^",
+}
+_CSS_TOKEN = re.compile(r"""
+  (?P<ws>[ \t\r\n]+)
+| (?P<block>/\*.*?\*/)
+| (?P<str>'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*")
+| (?P<other>[^\s'"/]+|/)
+""", re.X | re.S)
+_REST_OF_LINE = re.compile(r"[ \t]*(?:\r?\n|$)")
+_BLOCK = re.compile(r"(<(style|script)\b([^>]*)>)(.*?)(</\2>)", re.S | re.I)
+
+
+def _drop_comment(out, src, start, end):
+    """Drop src[start:end] from the output; returns where to carry on reading.
+
+    A comment on a line of its own takes the line with it. One after code takes
+    the spaces before it, and a block comment between two tokens leaves a space,
+    or a newline if it spanned one, because to ASI that comment was a line break.
+    """
+    gap = ""
+    while out and not out[-1].strip(" \t\r\n"):
+        chunk = out.pop()
+        if "\n" in chunk:
+            cut = chunk.rindex("\n") + 1
+            out.append(chunk[:cut])
+            gap = chunk[cut:] + gap
+            break
+        gap = chunk + gap
+    rest = _REST_OF_LINE.match(src, end)
+    if (not out or out[-1].endswith("\n")) and rest:
+        return rest.end()
+    if "\n" in src[start:end]:
+        out.append("\n")
+    elif out and not rest and src[end:end + 1] not in (" ", "\t"):
+        out.append(gap or " ")  # `a + /**/ +b` must not become `a ++b`
+    return end
+
+
+def strip_js(src):
+    """`src` without its comments, token for token the same script otherwise."""
+    out, pos, prev = [], 0, None
+    frames = [0]  # brace depth of each code frame; "`" marks a template literal
+    while pos < len(src):
+        if frames[-1] == "`":
+            text = _TEMPLATE_TEXT.match(src, pos).group()
+            out.append(text)
+            pos += len(text)
+            if src.startswith("${", pos):
+                frames.append(0)
+                out.append("${")
+                pos += 2
+            elif pos < len(src):
+                frames.pop()
+                out.append("`")
+                pos, prev = pos + 1, "`"
+            continue
+        m = _JS_TOKEN.match(src, pos)
+        kind, text = m.lastgroup, m.group()
+        if kind in ("line", "block"):
+            pos = _drop_comment(out, src, pos, m.end())
+            continue
+        if kind == "slash" and (prev is None or prev in _BEFORE_REGEX):
+            regex = _REGEX.match(src, pos)
+            if regex:
+                out.append(regex.group())
+                pos, prev = regex.end(), "/re/"
+                continue
+        out.append(text)
+        pos = m.end()
+        if kind == "ws":
+            continue
+        if kind == "tick":
+            frames.append("`")
+        elif kind == "open":
+            frames[-1] += 1
+        elif kind == "close":
+            if frames[-1] == 0 and len(frames) > 1:
+                frames.pop()  # the } that closes a ${
+                continue
+            frames[-1] -= 1
+        prev = text
+    return "".join(out)
+
+
+def strip_css(src):
+    out, pos = [], 0
+    while pos < len(src):
+        m = _CSS_TOKEN.match(src, pos)
+        if m.lastgroup == "block":
+            pos = _drop_comment(out, src, pos, m.end())
+            continue
+        out.append(m.group())
+        pos = m.end()
+    return "".join(out)
+
+
+@functools.lru_cache(maxsize=64)
+def _strip_block(tag, body):
+    return strip_css(body) if tag == "style" else strip_js(body)
+
+
+def strip_comments(page):
+    """Strip the comments from every inline <style> and classic <script> in `page`."""
+    def one(m):
+        tag, attrs = m.group(2).lower(), m.group(3)
+        typed = re.search(r"\btype\s*=\s*['\"]?([\w/+.-]+)", attrs)
+        data = tag == "script" and typed and typed.group(1) not in ("module", "text/javascript")
+        if re.search(r"\bsrc\s*=", attrs) or data:
+            return m.group()
+        return m.group(1) + _strip_block(tag, m.group(4)) + m.group(5)
+    return _BLOCK.sub(one, page)
 
 
 def slug(name):
@@ -215,15 +365,19 @@ def size_report(site_dir, budget, pages_dir, pages_label, extra=()):
     [(filename, note)] for on-demand files worth listing after the initial load.
     """
     site_dir = Path(site_dir)
-    initial = {p: (site_dir / p).stat().st_size for p in ("index.html", "data.js")}
+    # a site that inlines its payload into index.html has no data.js to count
+    initial = {
+        p: (site_dir / p).stat().st_size
+        for p in ("index.html", "data.js")
+        if p == "index.html" or (site_dir / p).exists()
+    }
     shards = sorted((site_dir / "h").glob("*.js"), key=lambda p: -p.stat().st_size)
     pages = list((site_dir / pages_dir).glob("*.html"))
-    lines = [
-        f"  {'index.html':<16}{initial['index.html'] / 1024:8.1f} KB",
-        f"  {'data.js':<16}{initial['data.js'] / 1024:8.1f} KB",
+    lines = [f"  {p:<16}{size / 1024:8.1f} KB" for p, size in initial.items()]
+    lines.append(
         f"  {'initial load':<16}{sum(initial.values()) / 1024:8.1f} KB"
-        f"   (budget {budget / 1024:.1f} KB)",
-    ]
+        f"   (budget {budget / 1024:.1f} KB)"
+    )
     for name, note in extra:
         lines.append(f"  {name:<16}{(site_dir / name).stat().st_size / 1024:8.1f} KB   ({note})")
     lines.append(
