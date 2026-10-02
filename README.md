@@ -77,6 +77,41 @@ that is where `rollout.sh` finds them. `rail-delays` is the fourth, of the narro
 To try an unpushed change against a site first:
 `uv run --with-editable ../statusui <build-cmd>` from that site's directory.
 
+## Why not a monorepo (2026-10-02)
+
+Folding statusui and the four sites into one repository was considered and declined.
+
+What it would have bought: a change that needs statusui and the sites together becomes one PR
+with every site's suite run on it, and there are no pins, bumps or `rollout.sh`. Since the pin
+replaced vendoring on 2026-08-20, esb's pin has moved 19 times and lifts' 16, mostly in two
+bursts: the alignment pass on 2026-08-26 (six moves in esb that day) and the first-paint pass on
+2026-10-02 (three re-pins per site against a statusui branch under review, then the bump).
+Between them, September's four landings were one `rollout.sh` run each.
+
+What it would have cost, for good:
+
+- GitHub Pages serves one site per repository, so keeping the URLs means each old repository
+  stays as a shell whose `pages.yml` builds from the monorepo. Every site would live in two
+  places: its code in one, its Pages settings and old issues in the other.
+- uisce's Build DB commits its JSONL to `main` twice a day and publishes a release per build.
+  Neither belongs in a shared repository, so both would move to a new `uisce-data`, reopening
+  the 2026-08-21 rejection in uisce's `notes/rules-vs-llm-end-times.md`. The old `uisce`
+  repository could still never go: its releases are the only copy of the 9,052 cases the feed
+  purged on 2026-08-10.
+- The repository boundary that stops one site importing another's code would have to become a
+  test.
+- With no bump PR there is no pause to look at a site before a statusui change reaches it.
+
+The bursts were deliberate cross-site passes, and the 2026-10-02 one was a performance fix that
+could have been made while it was uisce's alone; the costs above do not come and go.
+Reconsider if passes that touch statusui and several sites at once become routine, around one
+a fortnight.
+
+When a change does need both, land the statusui half first as something no site uses yet (a
+new marker, helper or custom property), roll it out as a plain bump, then adopt it in each
+site's own PR. Re-pinning sites to a statusui branch under review is what made 2026-10-02
+expensive.
+
 ## What is shared and what is not
 
 **Shared** — tokens; reset, body, `.wrap`, header; `.banner`; `.tiles/.tile`;
