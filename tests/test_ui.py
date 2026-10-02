@@ -67,7 +67,7 @@ class TestCss(unittest.TestCase):
         # to beat it and un-hide a view container.
         bare = re.sub(r"/\*.*?\*/", "", CSS, flags=re.S)
         important = re.findall(r"([^{}]+)\{[^{}]*display\s*:[^;{}]*!important", bare)
-        self.assertEqual([s.strip() for s in important], ["[hidden]"])
+        self.assertEqual([s.strip() for s in important], ['[hidden]:not([hidden="until-found"])'])
 
     def test_the_wait_gate_is_one_class_in_three_places(self):
         name = re.search(r"html\.(\w+) :is\(\[data-wait\], #_\)", CSS).group(1)
