@@ -34,10 +34,9 @@
 }
 
 * { box-sizing: border-box; margin: 0; }
-/* !important keeps `hidden` meaning hidden whatever display a layout rule sets:
-   the UA's own [hidden] rule is a plain `display: none` that any author
-   `display` outranks. */
-[hidden] { display: none !important; }
+/* !important, or any layout rule's display outranks the UA's plain [hidden].
+   until-found is left out: find-in-page cannot reach into display: none. */
+[hidden]:not([hidden="until-found"]) { display: none !important; }
 body {
   background: var(--page); color: var(--ink);
   font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;

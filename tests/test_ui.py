@@ -67,7 +67,7 @@ class TestCss(unittest.TestCase):
         # to beat it and un-hide a view container.
         bare = re.sub(r"/\*.*?\*/", "", CSS, flags=re.S)
         important = re.findall(r"([^{}]+)\{[^{}]*display\s*:[^;{}]*!important", bare)
-        self.assertEqual([s.strip() for s in important], ["[hidden]"])
+        self.assertEqual([s.strip() for s in important], ['[hidden]:not([hidden="until-found"])'])
 
     def test_the_drill_down_sub_line_is_shared(self):
         # All three sites put a link to the page's permanent URL on this line,
