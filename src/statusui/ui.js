@@ -104,19 +104,25 @@ function cacheBust(D) {
 
 // Injected <script>, not fetch: the site has to work opened straight off disk,
 // and fetch cannot read a file:// URL. state[key] goes "loading" -> "ok" |
-// "error"; isLoaded() is the truth, because onload alone is not success — a
+// "error", and "error" -> "ok" when a timed-out script lands late, calling done
+// again; isLoaded() is the truth, because onload alone is not success: a
 // file served but blocked, or truncated, loads without assigning anything.
 var SHARD_TIMEOUT_MS = 10000;
 
 function loadShard(state, key, src, isLoaded, done) {
-  if (isLoaded() || state[key] === "loading") return done();
+  if (isLoaded()) state[key] = "ok";
+  if (state[key] === "ok" || state[key] === "loading") return done();
   state[key] = "loading";
   var s = document.createElement("script");
   s.src = src;
   var settled = false;
   var timer = setTimeout(finish, SHARD_TIMEOUT_MS);
   function finish() {
-    if (settled) return;
+    if (settled) {
+      // landing after the timeout is still the data, and the page is showing an error
+      if (state[key] !== "ok" && isLoaded()) { state[key] = "ok"; done(); }
+      return;
+    }
     settled = true;
     clearTimeout(timer);
     state[key] = isLoaded() ? "ok" : "error";

@@ -858,6 +858,43 @@ var document = {documentElement: {classList: {
         self.assertTrue(held)
 
 
+@needs_node
+class TestLoadShard(unittest.TestCase):
+    BUNDLE = JS
+
+    def run_js(self, body):
+        harness = self.BUNDLE + """
+var timers = [], scripts = [], calls = [], state = {}, data = null;
+function setTimeout(f) { timers.push(f); return timers.length; }
+function clearTimeout(i) { if (i) timers[i - 1] = null; }
+var document = {createElement: function () { var s = {}; scripts.push(s); return s; },
+                head: {appendChild: function () {}}};
+function load() {
+  loadShard(state, "k", "k.js", function () { return !!data; },
+            function () { calls.push(state.k); });
+}
+""" + body + "\nconsole.log(JSON.stringify({state: state.k, calls: calls, n: scripts.length}));"
+        run = subprocess.run(["node", "-e", harness], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        return json.loads(run.stdout)
+
+    def test_a_shard_that_lands_in_time_is_ok_once(self):
+        out = self.run_js("load(); data = 1; scripts[0].onload();")
+        self.assertEqual(out, {"state": "ok", "calls": ["ok"], "n": 1})
+
+    def test_a_shard_landing_after_the_timeout_is_adopted(self):
+        out = self.run_js("load(); timers[0](); data = 1; scripts[0].onload();")
+        self.assertEqual(out, {"state": "ok", "calls": ["error", "ok"], "n": 1})
+
+    def test_a_late_failure_changes_nothing(self):
+        out = self.run_js("load(); timers[0](); scripts[0].onerror();")
+        self.assertEqual(out, {"state": "error", "calls": ["error"], "n": 1})
+
+    def test_data_already_there_is_ok_without_a_request(self):
+        out = self.run_js('state.k = "error"; data = 1; load();')
+        self.assertEqual(out, {"state": "ok", "calls": ["ok"], "n": 0})
+
+
 # Every node test again, over the bundle as a page actually ships it.
 @needs_node
 class TestMirrorStripped(TestMirror):
@@ -871,6 +908,11 @@ class TestSearchHitsStripped(TestSearchHits):
 
 @needs_node
 class TestBindSearchStripped(TestBindSearch):
+    BUNDLE = statusui.strip_js(JS)
+
+
+@needs_node
+class TestLoadShardStripped(TestLoadShard):
     BUNDLE = statusui.strip_js(JS)
 
 
