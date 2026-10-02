@@ -34,7 +34,7 @@ JS_GLOBALS = {
     "esc", "slug", "monthLabel", "monthLabelLong", "num", "plural",
     "fmtDays", "fmtHours", "when", "fmtDay", "fmtDate", "monthTabs",
     "revealMonthTab", "dayCells", "bindDayCaption", "bindMonthReveal",
-    "cacheBust", "loadShard", "freshness", "stampLine",
+    "cacheBust", "SHARD_TIMEOUT_MS", "loadShard", "pending", "freshness", "stampLine",
     "searchHits", "bindSearch",
 }
 
@@ -68,6 +68,19 @@ class TestCss(unittest.TestCase):
         bare = re.sub(r"/\*.*?\*/", "", CSS, flags=re.S)
         important = re.findall(r"([^{}]+)\{[^{}]*display\s*:[^;{}]*!important", bare)
         self.assertEqual([s.strip() for s in important], ['[hidden]:not([hidden="until-found"])'])
+
+    def test_the_wait_gate_is_one_class_in_three_places(self):
+        name = re.search(r"html\.(\w+) :is\(\[data-wait\], #_\)", CSS).group(1)
+        self.assertIn(f'h.classList.add("{name}")', statusui.WAIT_HEAD)
+        self.assertIn(f'h.classList.remove("{name}")', statusui.WAIT_HEAD)
+        self.assertIn(f'classList.toggle("{name}"', JS)
+
+    def test_the_wait_head_script_needs_nothing_from_the_bundle(self):
+        for name in JS_GLOBALS - {"pending"}:
+            self.assertIsNone(re.search(rf"\b{name}\b", statusui.WAIT_HEAD), name)
+
+    def test_the_gutter_is_reserved(self):
+        self.assertRegex(CSS, r"html\s*\{[^}]*scrollbar-gutter:\s*stable")
 
     def test_the_drill_down_sub_line_is_shared(self):
         # All three sites put a link to the page's permanent URL on this line,
@@ -197,6 +210,16 @@ class TestPython(unittest.TestCase):
         self.assertTrue(page.endswith("filled"))
         self.assertNotIn("<!--", page.replace("<!--UI", ""))
 
+    def test_assemble_fills_the_wait_marker(self):
+        page = statusui.assemble("<head><!--UI-WAIT--></head>")
+        self.assertEqual(page, f"<head>{statusui.WAIT_HEAD}</head>")
+
+    def test_no_shared_file_carries_a_marker(self):
+        # each is inlined before the markers are filled, so a marker named in a
+        # comment would be filled inside it: a </script> in the middle of ui.js
+        for text in (CSS, JS):
+            self.assertNotIn("<!--UI", text)
+
     def test_a_page_can_take_the_caption_without_the_app(self):
         page = statusui.assemble("<script><!--UI-JS-CAPTION--></script>")
         self.assertIn("function bindDayCaption", page)
@@ -311,6 +334,24 @@ class TestPython(unittest.TestCase):
         self.assertIn("(1 files)", text)
         self.assertIn("on demand", text)
 
+    def test_size_report_with_the_data_inlined(self):
+        with tempfile.TemporaryDirectory() as td:
+            site = Path(td)
+            (site / "index.html").write_bytes(b"x" * 1024)
+            (site / "pages").mkdir()
+            total, text = statusui.size_report(site, 4096, "pages", "pages")
+        self.assertEqual(total, 1024)
+        self.assertNotIn("data.js", text)
+
+    def test_size_report_still_needs_a_data_js_the_page_loads(self):
+        with tempfile.TemporaryDirectory() as td:
+            site = Path(td)
+            (site / "pages").mkdir()
+            for page in ('<script src="data.js"></script>', 'loadShard(S, "all", "data.js" + v)'):
+                (site / "index.html").write_text(page)
+                with self.assertRaises(FileNotFoundError):
+                    statusui.size_report(site, 4096, "pages", "pages")
+
     def test_size_report_without_shards(self):
         with tempfile.TemporaryDirectory() as td:
             site = Path(td)
@@ -379,9 +420,11 @@ class TestMirror(unittest.TestCase):
     DAYS = [0, 1, 2, 59, 60, 61, 365, 98.93]
     WHEN = ["2026-08-16T20:21", "2026-01-06T09:05", "2025-12-31T23:59"]
 
+    BUNDLE = JS
+
     @classmethod
     def setUpClass(cls):
-        harness = JS + f"""
+        harness = cls.BUNDLE + f"""
 var hoursIn = {json.dumps(cls.HOURS)}, daysIn = {json.dumps(cls.DAYS)};
 var whenIn = {json.dumps(cls.WHEN)};
 console.log(JSON.stringify({{
@@ -435,6 +478,8 @@ console.log(JSON.stringify({{
 class TestSearchHits(unittest.TestCase):
     """searchHits is the pure half of the search box; bindSearch is DOM-only."""
 
+    BUNDLE = JS
+
     COUNTIES = ["Carlow", "Cork", "Dublin"]
     INDEX = {
         "Cork": ["Ballincollig", "Carrigaline", "Cobh"],
@@ -443,7 +488,7 @@ class TestSearchHits(unittest.TestCase):
     }
 
     def hits(self, q):
-        harness = JS + f"""
+        harness = self.BUNDLE + f"""
 console.log(JSON.stringify(searchHits({json.dumps(q)},
   {json.dumps(self.COUNTIES)}, {json.dumps(self.INDEX)})));
 """
@@ -467,7 +512,7 @@ console.log(JSON.stringify(searchHits({json.dumps(q)},
     def test_a_place_indexed_under_itself_renders_once(self):
         # lifts keys each station under its own name, so a prefix hit and a
         # substring hit are the same place
-        harness = JS + """
+        harness = self.BUNDLE + """
 console.log(JSON.stringify(searchHits("co", ["Cork"], {"Cork": ["Cork", "Cobh"]})));
 """
         run = subprocess.run(["node", "-e", harness], capture_output=True, text=True)
@@ -477,7 +522,7 @@ console.log(JSON.stringify(searchHits("co", ["Cork"], {"Cork": ["Cork", "Cobh"]}
     def test_a_pair_yields_a_triple_and_a_string_yields_a_pair(self):
         # the mixed index is the real one: a site indexes names it has a page
         # for beside names it does not
-        harness = JS + """
+        harness = self.BUNDLE + """
 console.log(JSON.stringify(searchHits("na", ["Kildare"],
   {"Kildare": [["Naas", "naas"], "Nass Road"]})));
 """
@@ -491,7 +536,7 @@ console.log(JSON.stringify(searchHits("na", ["Kildare"],
         # fourteen Irish towns share their county's name and have a page of
         # their own; the county still ranks first, so typing "sligo" lands on
         # the county, but the town is one row down instead of nowhere
-        harness = JS + """
+        harness = self.BUNDLE + """
 console.log(JSON.stringify(searchHits("cor", ["Cork"],
   {"Cork": [["Cork", "cork"], "Cobh", "Corkbeg"]})));
 """
@@ -502,7 +547,7 @@ console.log(JSON.stringify(searchHits("cor", ["Cork"],
             [["Cork", "Cork"], ["Cork", "Cork", "cork"], ["Corkbeg", "Cork"]])
 
     def test_hits_are_capped_at_forty(self):
-        harness = JS + """
+        harness = self.BUNDLE + """
 var index = {"Cork": []};
 for (var i = 0; i < 60; i++) index.Cork.push("Place " + String(i).padStart(2, "0"));
 console.log(JSON.stringify(searchHits("place", ["Cork"], index).length));
@@ -520,6 +565,8 @@ class TestBindSearch(unittest.TestCase):
     target is a real link, and pick() returning true is how a site keeps one in
     the app anyway.
     """
+
+    BUNDLE = JS
 
     SHIM = """
 function El(tag) {
@@ -563,7 +610,7 @@ function click(c, t, ev) {
 """
 
     def run_js(self, body):
-        harness = JS + self.SHIM + self.BIND + body
+        harness = self.BUNDLE + self.SHIM + self.BIND + body
         run = subprocess.run(["node", "-e", harness], capture_output=True, text=True)
         self.assertEqual(run.returncode, 0, run.stderr)
         return json.loads(run.stdout)
@@ -698,13 +745,145 @@ console.log(JSON.stringify({cases}.map(function (c) {{
         self.assertEqual(run.returncode, 0, run.stderr)
         return json.loads(run.stdout)
 
+    BUNDLE, FRESH_BUNDLE = JS, FRESH
+
     def test_cases(self):
-        self.assertEqual(self.ages(JS), [want for _, _, want in self.CASES])
+        self.assertEqual(self.ages(self.BUNDLE), [want for _, _, want in self.CASES])
 
     def test_the_piece_alone_answers_the_same(self):
         """A page can inline this file alone, so it has to carry every name it
         reaches for. Run over the bundle, a miss would be invisible."""
-        self.assertEqual(self.ages(FRESH), [want for _, _, want in self.CASES])
+        self.assertEqual(self.ages(self.FRESH_BUNDLE), [want for _, _, want in self.CASES])
+
+
+
+class TestStripComments(unittest.TestCase):
+    def test_a_comment_on_its_own_line_takes_the_line(self):
+        src = "a();\n  // why\n  /* and\n  more */\nb();"
+        self.assertEqual(statusui.strip_js(src), "a();\nb();")
+
+    def test_a_trailing_comment_takes_the_spaces_before_it(self):
+        self.assertEqual(statusui.strip_js("a(); // why\nb();"), "a();\nb();")
+
+    def test_a_comment_between_tokens_still_separates_them(self):
+        self.assertEqual(statusui.strip_js("var/**/x"), "var x")
+
+    def test_a_comment_spanning_a_line_is_still_a_line_break(self):
+        # ASI reads a multi-line comment as a newline; `return` must stay alone
+        self.assertEqual(statusui.strip_js("return /* a\n b */ x"), "return\n x")
+
+    def test_strings_templates_and_regexes_keep_what_looks_like_comments(self):
+        for src in (
+            "s = '// not' + \"/* not */\";",
+            "t = `https://x ${ {a: 1}.a } /* not */ ${`${n} // not`}`;",
+            "r = /\\/\\*[/]/g.test(s);",
+            "if (x) /re/.test(y);",
+            "return /a/;",
+        ):
+            self.assertEqual(statusui.strip_js(src), src)
+
+    def test_a_slash_after_a_value_divides(self):
+        self.assertEqual(statusui.strip_js("x = a / b; // c\ny = (a) / 2 /* d */;"),
+                         "x = a / b;\ny = (a) / 2 ;")
+
+    def test_the_space_a_comment_sat_in_is_kept(self):
+        self.assertEqual(statusui.strip_js("a + /* c */ +b"), "a + +b")
+
+    def test_a_slash_after_an_if_condition_opens_a_regex(self):
+        src = "if (x) /[/*]/.test(y);\na();/* z */b();"
+        self.assertEqual(statusui.strip_js(src), "if (x) /[/*]/.test(y);\na(); b();")
+        src = "for await (x of y) /[/*]/.test(x);"
+        self.assertEqual(statusui.strip_js(src), src)
+        self.assertEqual(statusui.strip_js("f(x) / 2 /* d */"), "f(x) / 2")
+
+    def test_a_method_named_like_a_keyword_is_a_call(self):
+        src = 'v = arr.with(0, 1) / n + "/" + "/* not a comment */";'
+        self.assertEqual(statusui.strip_js(src), src)
+
+    def test_a_css_comment_between_tokens_still_ends_them(self):
+        for css in (".x/* c */.y{}", "margin:1px/* c */-2px", "@media screen and/* c */(x:1)"):
+            self.assertEqual(statusui.strip_css(css), css.replace("/* c */", "/**/"))
+        self.assertEqual(statusui.strip_css(".x /* c */ .y{}"), ".x .y{}")
+
+    def test_css_keeps_comment_lookalikes_in_strings(self):
+        css = 'a { content: "/* not */"; } /* why */\n/* why */\nb { x: 1 }'
+        self.assertEqual(statusui.strip_css(css), 'a { content: "/* not */"; }\nb { x: 1 }')
+
+    def test_the_page_keeps_its_markup_and_external_scripts(self):
+        page = (
+            "<!--SITE-MARKER--><style>/* c */a{}</style>"
+            "<script src='x.js'>/* left */</script>"
+            '<script type="application/ld+json">{"a": "/* left */"}</script>'
+            "<script type='module'>// c\nf()</script><script>g() // c\n</script>"
+        )
+        self.assertEqual(statusui.strip_comments(page), (
+            "<!--SITE-MARKER--><style>a{}</style>"
+            "<script src='x.js'>/* left */</script>"
+            '<script type="application/ld+json">{"a": "/* left */"}</script>'
+            "<script type='module'>f()</script><script>g()\n</script>"
+        ))
+
+    def test_stripping_twice_changes_nothing(self):
+        once = statusui.strip_js(JS)
+        self.assertEqual(statusui.strip_js(once), once)
+        self.assertEqual(statusui.strip_css(statusui.strip_css(CSS)), statusui.strip_css(CSS))
+
+    def test_an_assembled_page_ships_no_comments(self):
+        page = statusui.assemble("<style><!--UI-CSS--></style><script><!--UI-JS--></script>")
+        self.assertNotIn("/*", page)
+        self.assertIsNone(re.search(r"^\s*//", page, re.M))
+        self.assertLess(len(page), 0.75 * len(CSS + JS))
+
+
+@needs_node
+class TestPending(unittest.TestCase):
+    def run_js(self, body):
+        harness = JS + """
+var timers = [], cls = {};
+function setTimeout(f) { timers.push(f); return timers.length; }
+function clearTimeout(i) { if (i) timers[i - 1] = null; }
+var document = {documentElement: {classList: {
+  toggle: function (c, on) { cls[c] = on; }, remove: function (c) { cls[c] = false; }}}};
+""" + body + "\nconsole.log(JSON.stringify(cls.wait));"
+        run = subprocess.run(["node", "-e", harness], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        return json.loads(run.stdout)
+
+    def test_a_hold_never_released_gives_up(self):
+        self.assertFalse(self.run_js("pending(true); timers[0]();"))
+
+    def test_a_release_cancels_the_give_up(self):
+        held = self.run_js(
+            "pending(true); pending(false); pending(true); timers[0] && timers[0]();")
+        self.assertTrue(held)
+
+
+# Every node test again, over the bundle as a page actually ships it.
+@needs_node
+class TestMirrorStripped(TestMirror):
+    BUNDLE = statusui.strip_js(JS)
+
+
+@needs_node
+class TestSearchHitsStripped(TestSearchHits):
+    BUNDLE = statusui.strip_js(JS)
+
+
+@needs_node
+class TestBindSearchStripped(TestBindSearch):
+    BUNDLE = statusui.strip_js(JS)
+
+
+@needs_node
+class TestFreshnessStripped(TestFreshness):
+    BUNDLE, FRESH_BUNDLE = statusui.strip_js(JS), statusui.strip_js(FRESH)
+
+
+@needs_node
+class TestStrippedBundle(unittest.TestCase):
+    def test_declares_what_the_source_declares(self):
+        declared = TestPublishedGlobals.declared
+        self.assertEqual(declared(statusui.strip_js(JS)), declared(JS))
 
 
 if __name__ == "__main__":

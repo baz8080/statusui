@@ -106,13 +106,15 @@ function cacheBust(D) {
 // and fetch cannot read a file:// URL. state[key] goes "loading" -> "ok" |
 // "error"; isLoaded() is the truth, because onload alone is not success — a
 // file served but blocked, or truncated, loads without assigning anything.
+var SHARD_TIMEOUT_MS = 10000;
+
 function loadShard(state, key, src, isLoaded, done) {
   if (isLoaded() || state[key] === "loading") return done();
   state[key] = "loading";
   var s = document.createElement("script");
   s.src = src;
   var settled = false;
-  var timer = setTimeout(finish, 10000);
+  var timer = setTimeout(finish, SHARD_TIMEOUT_MS);
   function finish() {
     if (settled) return;
     settled = true;
@@ -123,6 +125,18 @@ function loadShard(state, key, src, isLoaded, done) {
   s.onload = finish;
   s.onerror = finish;
   document.head.appendChild(s);
+}
+
+// A hold that is never released would blank the page, so each one gives up, but only
+// after a shard's own timeout has had its chance to release it with the error drawn.
+function pending(on) {
+  var h = document.documentElement;
+  pending.owned = true;
+  clearTimeout(pending.timer);
+  h.classList.toggle("wait", !!on);
+  if (on) {
+    pending.timer = setTimeout(function () { h.classList.remove("wait"); }, SHARD_TIMEOUT_MS + 2000);
+  }
 }
 
 /* --- the place search ---------------------------------------------------- */
@@ -205,7 +219,7 @@ function bindSearch(opts) {
     // settled, as in loadShard: a timed-out script's late onload must not
     // re-run finish against a retry's state and flush its queue early
     var settled = false;
-    var timer = setTimeout(finish, 10000);
+    var timer = setTimeout(finish, SHARD_TIMEOUT_MS);
     function finish() {
       if (settled) return;
       settled = true;

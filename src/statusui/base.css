@@ -34,9 +34,16 @@
 }
 
 * { box-sizing: border-box; margin: 0; }
+/* A classic scrollbar (Windows, most desktop Linux) arrives once the render makes
+   the page scroll, and took half its width off the centred .wrap: CLS 0.63 on
+   uisce's index at 1366px. Overlay scrollbars take no gutter, so phones are unchanged. */
+html { scrollbar-gutter: stable; }
 /* !important, or any layout rule's display outranks the UA's plain [hidden].
    until-found is left out: find-in-page cannot reach into display: none. */
 [hidden]:not([hidden="until-found"]) { display: none !important; }
+/* Painted empty, these were shoved down by the first render (uisce CLS 0.45 in the
+   field). #_ matches nothing: it lends an id's weight so a site's #id rule cannot win. */
+html.wait :is([data-wait], #_) { display: none; }
 body {
   background: var(--page); color: var(--ink);
   font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
