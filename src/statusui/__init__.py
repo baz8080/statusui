@@ -175,18 +175,18 @@ def _drop_comment(out, src, start, end, css=False):
     if "\n" in src[start:end]:
         out.append("\n")
     elif out and not rest and src[end:end + 1] not in (" ", "\t"):
-        # JS reads a comment as a space (`a + /**/ +b` is not `a ++b`); CSS reads it
-        # as nothing (`.x/**/.y` is `.x.y`) unless two words would run together
-        if gap or not css or (out[-1][-1:].isalnum() and src[end:end + 1].isalnum()):
-            out.append(gap or " ")
+        # JS reads a comment as a space (`a + /**/ +b` is not `a ++b`). CSS reads it as
+        # nothing yet still ends a token (`.x/**/.y` is `.x.y`, `1px/**/-2px` is two),
+        # which only an empty comment keeps
+        out.append(gap or ("/**/" if css else " "))
     return end
 
 
 def strip_js(src):
     """`src` without its comments, token for token the same script otherwise."""
-    out, pos, prev = [], 0, None
+    out, pos, prev, before = [], 0, None, None
     frames = [0]  # brace depth of each code frame; "`" marks a template literal
-    parens = []  # the token before each open (, to know what its ) closes
+    parens = []  # whether each open ( heads a statement like `if (`
     while pos < len(src):
         if frames[-1] == "`":
             text = _TEMPLATE_TEXT.match(src, pos).group()
@@ -199,7 +199,7 @@ def strip_js(src):
             elif pos < len(src):
                 frames.pop()
                 out.append("`")
-                pos, prev = pos + 1, "`"
+                pos, before, prev = pos + 1, prev, "`"
             continue
         m = _JS_TOKEN.match(src, pos)
         kind, text = m.lastgroup, m.group()
@@ -210,16 +210,18 @@ def strip_js(src):
             regex = _REGEX.match(src, pos)
             if regex:
                 out.append(regex.group())
-                pos, prev = regex.end(), "/re/"
+                pos, before, prev = regex.end(), prev, "/re/"
                 continue
         out.append(text)
         pos = m.end()
         if kind == "ws":
             continue
         if text == "(":
-            parens.append(prev)
-        elif text == ")" and parens and parens.pop() in _PAREN_STATEMENTS:
-            prev = "("  # `if (x) /re/` is a statement then a regex, not a division
+            # not `arr.with(`, which is a call; `for await (` is a loop
+            parens.append(prev in _PAREN_STATEMENTS and before != "."
+                          or (prev, before) == ("await", "for"))
+        elif text == ")" and parens and parens.pop():
+            before, prev = prev, "("  # `if (x) /re/` is a statement then a regex
             continue
         if kind == "tick":
             frames.append("`")
@@ -230,7 +232,7 @@ def strip_js(src):
                 frames.pop()  # the } that closes a ${
                 continue
             frames[-1] -= 1
-        prev = text
+        before, prev = prev, text
     return "".join(out)
 
 
@@ -378,8 +380,8 @@ def size_report(site_dir, budget, pages_dir, pages_label, extra=()):
     """
     site_dir = Path(site_dir)
     # A site that inlines its payload writes no data.js; one whose page still
-    # loads it must have written it.
-    loads_data = 'src="data.js"' in (site_dir / "index.html").read_text(encoding="utf-8")
+    # names it, by src or as a lazily loaded script, must have written it.
+    loads_data = '"data.js' in (site_dir / "index.html").read_text(encoding="utf-8")
     initial = {
         p: (site_dir / p).stat().st_size
         for p in ("index.html", "data.js")

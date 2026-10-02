@@ -34,7 +34,7 @@ JS_GLOBALS = {
     "esc", "slug", "monthLabel", "monthLabelLong", "num", "plural",
     "fmtDays", "fmtHours", "when", "fmtDay", "fmtDate", "monthTabs",
     "revealMonthTab", "dayCells", "bindDayCaption", "bindMonthReveal",
-    "cacheBust", "loadShard", "pending", "freshness", "stampLine",
+    "cacheBust", "SHARD_TIMEOUT_MS", "loadShard", "pending", "freshness", "stampLine",
     "searchHits", "bindSearch",
 }
 
@@ -346,10 +346,11 @@ class TestPython(unittest.TestCase):
     def test_size_report_still_needs_a_data_js_the_page_loads(self):
         with tempfile.TemporaryDirectory() as td:
             site = Path(td)
-            (site / "index.html").write_text('<script src="data.js"></script>')
             (site / "pages").mkdir()
-            with self.assertRaises(FileNotFoundError):
-                statusui.size_report(site, 4096, "pages", "pages")
+            for page in ('<script src="data.js"></script>', 'loadShard(S, "all", "data.js" + v)'):
+                (site / "index.html").write_text(page)
+                with self.assertRaises(FileNotFoundError):
+                    statusui.size_report(site, 4096, "pages", "pages")
 
     def test_size_report_without_shards(self):
         with tempfile.TemporaryDirectory() as td:
@@ -558,14 +559,14 @@ console.log(JSON.stringify(searchHits("place", ["Cork"], index).length));
 
 @needs_node
 class TestBindSearch(unittest.TestCase):
-    BUNDLE = JS
-
     """The dropdown, against a DOM shim carrying only what bindSearch touches.
 
     What is worth guarding is the contract the sites lean on: a hit with a
     target is a real link, and pick() returning true is how a site keeps one in
     the app anyway.
     """
+
+    BUNDLE = JS
 
     SHIM = """
 function El(tag) {
@@ -744,7 +745,7 @@ console.log(JSON.stringify({cases}.map(function (c) {{
         self.assertEqual(run.returncode, 0, run.stderr)
         return json.loads(run.stdout)
 
-    BUNDLE = JS
+    BUNDLE, FRESH_BUNDLE = JS, FRESH
 
     def test_cases(self):
         self.assertEqual(self.ages(self.BUNDLE), [want for _, _, want in self.CASES])
@@ -752,7 +753,7 @@ console.log(JSON.stringify({cases}.map(function (c) {{
     def test_the_piece_alone_answers_the_same(self):
         """A page can inline this file alone, so it has to carry every name it
         reaches for. Run over the bundle, a miss would be invisible."""
-        self.assertEqual(self.ages(FRESH), [want for _, _, want in self.CASES])
+        self.assertEqual(self.ages(self.FRESH_BUNDLE), [want for _, _, want in self.CASES])
 
 
 
@@ -791,12 +792,18 @@ class TestStripComments(unittest.TestCase):
     def test_a_slash_after_an_if_condition_opens_a_regex(self):
         src = "if (x) /[/*]/.test(y);\na();/* z */b();"
         self.assertEqual(statusui.strip_js(src), "if (x) /[/*]/.test(y);\na(); b();")
+        src = "for await (x of y) /[/*]/.test(x);"
+        self.assertEqual(statusui.strip_js(src), src)
         self.assertEqual(statusui.strip_js("f(x) / 2 /* d */"), "f(x) / 2")
 
-    def test_a_css_comment_between_selectors_is_nothing(self):
-        self.assertEqual(statusui.strip_css(".x/* c */.y{a:1}"), ".x.y{a:1}")
-        self.assertEqual(statusui.strip_css("a/**/:hover{}"), "a:hover{}")
-        self.assertEqual(statusui.strip_css("1px/**/solid"), "1px solid")
+    def test_a_method_named_like_a_keyword_is_a_call(self):
+        src = 'v = arr.with(0, 1) / n + "/" + "/* not a comment */";'
+        self.assertEqual(statusui.strip_js(src), src)
+
+    def test_a_css_comment_between_tokens_still_ends_them(self):
+        for css in (".x/* c */.y{}", "margin:1px/* c */-2px", "@media screen and/* c */(x:1)"):
+            self.assertEqual(statusui.strip_css(css), css.replace("/* c */", "/**/"))
+        self.assertEqual(statusui.strip_css(".x /* c */ .y{}"), ".x .y{}")
 
     def test_css_keeps_comment_lookalikes_in_strings(self):
         css = 'a { content: "/* not */"; } /* why */\n/* why */\nb { x: 1 }'
@@ -869,7 +876,7 @@ class TestBindSearchStripped(TestBindSearch):
 
 @needs_node
 class TestFreshnessStripped(TestFreshness):
-    BUNDLE = statusui.strip_js(JS)
+    BUNDLE, FRESH_BUNDLE = statusui.strip_js(JS), statusui.strip_js(FRESH)
 
 
 @needs_node
