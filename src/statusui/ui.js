@@ -125,10 +125,14 @@ function loadShard(state, key, src, isLoaded, done) {
   document.head.appendChild(s);
 }
 
-// Holds a page's [data-wait] elements back while it waits on data, or lets them
-// go. The UI-WAIT head script set it before anything painted.
+// A hold that is never released would blank the page, so each one gives up after
+// loadShard's own timeout.
 function pending(on) {
-  document.documentElement.classList.toggle("wait", !!on);
+  var h = document.documentElement;
+  pending.owned = true;
+  clearTimeout(pending.timer);
+  h.classList.toggle("wait", !!on);
+  if (on) pending.timer = setTimeout(function () { h.classList.remove("wait"); }, 10000);
 }
 
 /* --- the place search ---------------------------------------------------- */

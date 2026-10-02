@@ -38,9 +38,10 @@ UI_WAIT = "<!--UI-WAIT-->"
 # Self-contained, because it runs in <head> before ui.js exists. The load event
 # is the fallback for a script that throws before calling pending(false), and the
 # timer for a data file that stalls rather than fails.
+# Once the page has called pending() its own timer is the net, so neither fires.
 WAIT_HEAD = (
     "<script>(function(){var h=document.documentElement;"
-    'function go(){h.classList.remove("wait")}'
+    'function go(){if(!(window.pending&&pending.owned))h.classList.remove("wait")}'
     'h.classList.add("wait");addEventListener("load",go);setTimeout(go,8000)})()</script>'
 )
 
@@ -135,7 +136,9 @@ _JS_TOKEN = re.compile(r"""
 """, re.X | re.S)
 _TEMPLATE_TEXT = re.compile(r"(?:[^`\\$]|\\.|\$(?!\{))*", re.S)
 _REGEX = re.compile(r"/(?:[^/\\\[\n]|\\.|\[(?:[^\]\\\n]|\\.)*\])+/[A-Za-z]*")
-# A / after one of these opens a regex literal; after anything else it divides.
+# A / after one of these opens a regex literal; after anything else it divides,
+# except after the ) of `if (...)` and its kin, which is tracked separately.
+_PAREN_STATEMENTS = {"if", "while", "for", "with"}
 _BEFORE_REGEX = {
     "return", "typeof", "instanceof", "in", "of", "new", "delete", "void", "throw",
     "case", "do", "else", "yield", "await", *"(,=:[!&|?{};+-*%<>~^",
@@ -150,7 +153,7 @@ _REST_OF_LINE = re.compile(r"[ \t]*(?:\r?\n|$)")
 _BLOCK = re.compile(r"(<(style|script)\b([^>]*)>)(.*?)(</\2>)", re.S | re.I)
 
 
-def _drop_comment(out, src, start, end):
+def _drop_comment(out, src, start, end, css=False):
     """Drop src[start:end] from the output; returns where to carry on reading.
 
     A comment on a line of its own takes the line with it. One after code takes
@@ -172,7 +175,10 @@ def _drop_comment(out, src, start, end):
     if "\n" in src[start:end]:
         out.append("\n")
     elif out and not rest and src[end:end + 1] not in (" ", "\t"):
-        out.append(gap or " ")  # `a + /**/ +b` must not become `a ++b`
+        # JS reads a comment as a space (`a + /**/ +b` is not `a ++b`); CSS reads it
+        # as nothing (`.x/**/.y` is `.x.y`) unless two words would run together
+        if gap or not css or (out[-1][-1:].isalnum() and src[end:end + 1].isalnum()):
+            out.append(gap or " ")
     return end
 
 
@@ -180,6 +186,7 @@ def strip_js(src):
     """`src` without its comments, token for token the same script otherwise."""
     out, pos, prev = [], 0, None
     frames = [0]  # brace depth of each code frame; "`" marks a template literal
+    parens = []  # the token before each open (, to know what its ) closes
     while pos < len(src):
         if frames[-1] == "`":
             text = _TEMPLATE_TEXT.match(src, pos).group()
@@ -209,6 +216,11 @@ def strip_js(src):
         pos = m.end()
         if kind == "ws":
             continue
+        if text == "(":
+            parens.append(prev)
+        elif text == ")" and parens and parens.pop() in _PAREN_STATEMENTS:
+            prev = "("  # `if (x) /re/` is a statement then a regex, not a division
+            continue
         if kind == "tick":
             frames.append("`")
         elif kind == "open":
@@ -227,7 +239,7 @@ def strip_css(src):
     while pos < len(src):
         m = _CSS_TOKEN.match(src, pos)
         if m.lastgroup == "block":
-            pos = _drop_comment(out, src, pos, m.end())
+            pos = _drop_comment(out, src, pos, m.end(), css=True)
             continue
         out.append(m.group())
         pos = m.end()
@@ -365,11 +377,13 @@ def size_report(site_dir, budget, pages_dir, pages_label, extra=()):
     [(filename, note)] for on-demand files worth listing after the initial load.
     """
     site_dir = Path(site_dir)
-    # a site that inlines its payload into index.html has no data.js to count
+    # A site that inlines its payload writes no data.js; one whose page still
+    # loads it must have written it.
+    loads_data = 'src="data.js"' in (site_dir / "index.html").read_text(encoding="utf-8")
     initial = {
         p: (site_dir / p).stat().st_size
         for p in ("index.html", "data.js")
-        if p == "index.html" or (site_dir / p).exists()
+        if p == "index.html" or loads_data or (site_dir / p).exists()
     }
     shards = sorted((site_dir / "h").glob("*.js"), key=lambda p: -p.stat().st_size)
     pages = list((site_dir / pages_dir).glob("*.html"))
